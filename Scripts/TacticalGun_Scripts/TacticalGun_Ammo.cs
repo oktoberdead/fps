@@ -6,6 +6,23 @@ public partial class TacticalGun
     // that have actually left the gun. The magazine count includes its top round.
     private void SetupAmmoVisuals()
     {
+        // These two fields describe *scene visuals*, not prefab assets. A prefab
+        // asset has scale 1 in its own space and cannot be toggled as a scene object.
+        // Treat accidental asset assignments as empty slots and create proper
+        // visual instances under ChamberPoint instead.
+        if (liveRoundMesh != null && !IsSceneVisual(liveRoundMesh))
+        {
+            Debug.LogWarning("[TacticalGun] Live Round Mesh must be a scene object (or None), not a prefab asset. Creating a chamber visual instead.", this);
+            liveRoundMesh = null;
+        }
+        if (spentCasingMesh != null && !IsSceneVisual(spentCasingMesh))
+        {
+            Debug.LogWarning("[TacticalGun] Spent Casing Mesh must be a scene object (or None), not a prefab asset. Creating a chamber visual instead.", this);
+            spentCasingMesh = null;
+        }
+        if (magazineTopPoint != null && !IsSceneVisual(magazineTopPoint.gameObject)) magazineTopPoint = null;
+        if (chamberPoint != null && !IsSceneVisual(chamberPoint.gameObject)) chamberPoint = null;
+
         // Existing chamber meshes are optional: prefab instances left in the gun
         // work, but deleted ones can be recreated as visual-only runtime clones.
         if (chamberPoint == null && liveRoundMesh != null)
@@ -20,15 +37,23 @@ public partial class TacticalGun
         }
         if (chamberPoint == null && ejectionPoint != null && ejectionPoint.parent != null)
         {
-            chamberPoint = new GameObject("ChamberPoint (runtime)").transform;
-            chamberPoint.SetParent(ejectionPoint.parent, false);
-            chamberPoint.localPosition = chamberLocalPosition;
+            chamberPoint = ejectionPoint.parent.Find("ChamberPoint");
+            if (chamberPoint == null)
+            {
+                chamberPoint = new GameObject("ChamberPoint (runtime)").transform;
+                chamberPoint.SetParent(ejectionPoint.parent, false);
+                chamberPoint.localPosition = chamberLocalPosition;
+            }
         }
         if (magazineTopPoint == null && magMesh != null)
         {
-            magazineTopPoint = new GameObject("MagazineTopPoint (runtime)").transform;
-            magazineTopPoint.SetParent(magMesh.transform, false);
-            magazineTopPoint.localPosition = magazineTopLocalPosition;
+            magazineTopPoint = magMesh.transform.Find("MagazineTopPoint");
+            if (magazineTopPoint == null)
+            {
+                magazineTopPoint = new GameObject("MagazineTopPoint (runtime)").transform;
+                magazineTopPoint.SetParent(magMesh.transform, false);
+                magazineTopPoint.localPosition = magazineTopLocalPosition;
+            }
         }
 
         if (liveRoundMesh == null && roundPrefab != null && chamberPoint != null)
@@ -62,6 +87,11 @@ public partial class TacticalGun
 
         if (magMesh != null) magMesh.SetActive(isMagazineInserted);
         UpdateAmmoVisuals();
+    }
+
+    private bool IsSceneVisual(GameObject visual)
+    {
+        return visual.scene.IsValid() && visual.scene == gameObject.scene;
     }
 
     private GameObject CreateChamberVisual(GameObject prefab, string visualName)
