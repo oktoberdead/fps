@@ -154,6 +154,12 @@ public partial class TacticalGun
         feedingProgress = 0f;
     }
 
+    private void CancelFeed()
+    {
+        isFeedingRound = false;
+        feedingProgress = 0f;
+    }
+
     private void AdvanceFeed(float slideReturnProgress)
     {
         if (!isFeedingRound) return;
@@ -208,7 +214,9 @@ public partial class TacticalGun
     private void EjectChamberContents()
     {
         if (!isChamberLoaded) return;
-        SpawnEjectedRound(isChamberSpent);
+        bool spent = isChamberSpent;
+        SpawnEjectedRound(spent);
+        PlaySlideOneShot(spent ? spentCaseEjectClips : liveRoundEjectClips);
         isChamberLoaded = false;
         isChamberSpent = false;
         EndSpentCaseExtraction();
@@ -219,7 +227,9 @@ public partial class TacticalGun
         GameObject prefab = spent ? casingPrefab : roundPrefab;
         if (prefab == null || ejectionPoint == null) return;
 
-        GameObject ejected = Instantiate(prefab, ejectionPoint.position, ejectionPoint.rotation);
+        Quaternion spawnRotation = ejectionPoint.rotation *
+            (spent ? Quaternion.Euler(casingEjectionRotationOffset) : Quaternion.identity);
+        GameObject ejected = Instantiate(prefab, ejectionPoint.position, spawnRotation);
         ejected.SetActive(true);
         ejected.transform.localScale = spent ? casingScale :
             (liveRoundMesh != null ? liveRoundMesh.transform.lossyScale : casingScale);
@@ -259,7 +269,9 @@ public partial class TacticalGun
                     Physics.IgnoreCollision(ejectedCollider, playerCollider);
 
         body.linearVelocity = ejectionPoint.TransformDirection(ejectionDirection.normalized) * ejectionSpeed;
-        body.angularVelocity = Random.onUnitSphere * Mathf.Abs(ejectionSpin);
+        Vector3 fixedSpin = spent ? ejectionPoint.TransformDirection(casingSpinBiasLocal) : Vector3.zero;
+        body.maxAngularVelocity = Mathf.Max(body.maxAngularVelocity, fixedSpin.magnitude + Mathf.Abs(ejectionSpin));
+        body.angularVelocity = fixedSpin + Random.onUnitSphere * Mathf.Abs(ejectionSpin);
         Destroy(ejected, casingLifetime);
     }
 }

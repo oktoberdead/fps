@@ -69,6 +69,9 @@ public partial class TacticalGun
             slideClickTimer = 0f;
             manualSlideAmount = 0f;
             manualInspectSwayX = 0f;
+            manualStrokeReadyToFeed = false;
+            manualEjectedThisStroke = false;
+            ResetManualSlideAudio();
 
             if (fpsController != null) fpsController.lookSensitivityMultiplier = inspectCameraSlowdown;
         }
@@ -83,8 +86,8 @@ public partial class TacticalGun
                 float mouseY = Input.GetAxis("Mouse Y");
                 float mouseX = Input.GetAxis("Mouse X");
 
-                manualSlideAmount -= mouseY * inspectMouseYSens;
-                manualSlideAmount = Mathf.Clamp01(manualSlideAmount);
+                float previousSlideAmount = manualSlideAmount;
+                manualSlideAmount = Mathf.Clamp01(manualSlideAmount - mouseY * slideDragSensitivity);
 
                 manualInspectSwayX -= mouseX * inspectMouseXSens;
                 manualInspectSwayX = Mathf.Clamp(manualInspectSwayX, -inspectMaxSwayAngle, inspectMaxSwayAngle);
@@ -95,13 +98,52 @@ public partial class TacticalGun
                     PlayRandomSound(cockSounds, 0.8f, 0.95f, 1.05f);
                 }
 
-                if (manualSlideAmount >= ejectionSlideThreshold) EjectChamberContents();
+                HandleManualSlideTravel(previousSlideAmount);
             }
         }
 
         if (Input.GetKeyUp(slideKey) && isHoldingSlideBtn)
         {
             ForceEndSlideInspect(processChambering: true);
+        }
+    }
+
+    private void HandleManualSlideTravel(float previousAmount)
+    {
+        float delta = manualSlideAmount - previousAmount;
+        UpdateManualSlideSound(delta);
+        if (delta > 0.0001f) // moving the slide backwards
+        {
+            if (isFeedingRound) CancelFeed(); // interrupted forward feed: no ammo spent
+            if (!manualEjectedThisStroke && previousAmount < ejectionSlideThreshold &&
+                manualSlideAmount >= ejectionSlideThreshold)
+            {
+                EjectChamberContents();
+                manualEjectedThisStroke = true;
+            }
+            if (manualSlideAmount >= chamberingPullThreshold)
+                manualStrokeReadyToFeed = true;
+        }
+        else if (delta < -0.0001f) // moving forwards with the bind still held
+        {
+            if (manualStrokeReadyToFeed)
+            {
+                float closeProgress = 1f - manualSlideAmount;
+                if (!isFeedingRound && closeProgress >= feedStartOnReturn) BeginFeed();
+                bool wasFeeding = isFeedingRound;
+                AdvanceFeed(closeProgress);
+                if (wasFeeding && !isFeedingRound && isChamberLoaded)
+                {
+                    manualStrokeReadyToFeed = false;
+                    manualEjectedThisStroke = false;
+                }
+            }
+            // The next rearward stroke is now a new rack (even if the bind is held).
+            if (manualSlideAmount <= 1f - Mathf.Max(feedEndOnReturn, 0.85f))
+            {
+                manualEjectedThisStroke = false;
+                manualStrokeReadyToFeed = false;
+            }
         }
     }
 
@@ -123,29 +165,37 @@ public partial class TacticalGun
 
             if (wantManualLock || emptyMagLock)
             {
+                CancelFeed();
                 isSlideLocked = true;
                 manualSlideAmount = 1f;
                 PlayRandomSound(slideLockSounds, 1f, 0.95f, 1.05f);
             }
             else
             {
+                bool canFeed = processChambering && manualStrokeReadyToFeed;
+                float startingCloseProgress = 1f - pulled;
+                if (manualSlideAudioDirection != -1 && pulled > 0.05f)
+                    PlaySlideOneShot(slideForwardClips);
                 manualSlideAmount = 0f;
-                StartCoroutine(ManualSlideReturnSequence(processChambering && pulled >= chamberingPullThreshold));
+                StartCoroutine(ManualSlideReturnSequence(canFeed, startingCloseProgress));
             }
+            manualStrokeReadyToFeed = false;
+            manualEjectedThisStroke = false;
         }
         else if (slideClickTimer < slideHoldThreshold && slideClickTimer > 0f && !isSlideLocked)
         {
             StartCoroutine(QuickRackSequence());
         }
 
+        ResetManualSlideAudio();
         slideClickTimer = 0f;
     }
 
-    private IEnumerator ManualSlideReturnSequence(bool canFeed)
+    private IEnumerator ManualSlideReturnSequence(bool canFeed, float startingCloseProgress)
     {
         isQuickRacking = true;
         isFiringRoutine = true;
-        yield return ReturnSlideAndFeed(slideCheckPullSpeed, canFeed);
+        yield return ReturnSlideAndFeed(slideCheckPullSpeed, canFeed, startingCloseProgress);
         isQuickRacking = false;
         isFiringRoutine = false;
     }
@@ -279,7 +329,7 @@ public partial class TacticalGun
 
     private void HandleReloadInput()
     {
-        if (Input.GetKeyDown(reloadKey) && currentMagAmmo < maxMagAmmo && !isFiringRoutine)
+        if (Input.GetKeyDown(reloadKey) && currentMagAmmo < maxMagAmmo && !isFiringRoutine && !isHoldingSlideBtn && !isManualSlidePull)
         {
             StartCoroutine(ReloadSequence());
         }
@@ -289,6 +339,7 @@ public partial class TacticalGun
     {
         isQuickRacking = true;
         isFiringRoutine = true;
+        PlaySlideOneShot(slideBackClips);
         Vector3 slideStart = slide != null ? slide.localPosition : slideBasePos;
         Vector3 slideBack = slideBasePos + slideRecoilOffset;
         float t = 0f;
@@ -322,6 +373,7 @@ public partial class TacticalGun
         }
         else
         {
+            PlaySlideOneShot(slideForwardClips);
             yield return ReturnSlideAndFeed(slideQuickRackSpeed, true);
         }
         isQuickRacking = false;
@@ -331,25 +383,27 @@ public partial class TacticalGun
     // One slide-return path for a shot, a tap rack, a manual pull and slide release.
     // The top cartridge leaves the magazine on the forward stroke; the counter
     // changes only when it has actually reached the chamber.
-    private IEnumerator ReturnSlideAndFeed(float speed, bool canFeed)
+    private IEnumerator ReturnSlideAndFeed(float speed, bool canFeed, float startingCloseProgress = 0f)
     {
         Vector3 start = slide != null ? slide.localPosition : slideBasePos + slideRecoilOffset;
         float t = 0f;
-        bool feedStarted = false;
+        bool feedStarted = isFeedingRound;
         float feedStart = Mathf.Clamp01(feedStartOnReturn);
         while (t < 1f)
         {
             t = Mathf.Min(1f, t + Time.deltaTime * Mathf.Max(0.01f, speed));
             if (slide != null) slide.localPosition = Vector3.Lerp(start, slideBasePos, t);
-            if (canFeed && !feedStarted && t >= feedStart)
+            float closeProgress = Mathf.Lerp(startingCloseProgress, 1f, t);
+            if (canFeed && !feedStarted && closeProgress >= feedStart)
             {
                 BeginFeed();
                 feedStarted = true;
             }
-            AdvanceFeed(t);
+            if (canFeed) AdvanceFeed(closeProgress);
             yield return null;
         }
-        CompleteFeed(); // also handles a short/low-frame-rate animation
+        if (canFeed) CompleteFeed(); // also handles a short/low-frame-rate animation
+        else CancelFeed();
         if (slide != null) slide.localPosition = slideBasePos;
     }
 
@@ -421,6 +475,7 @@ public partial class TacticalGun
     {
         if (!isSlideLocked) return;
         isSlideLocked = false;
+        PlaySlideOneShot(slideForwardClips);
         isQuickRacking = true;
         isFiringRoutine = true;
         StartCoroutine(ReleaseSlideSequence());

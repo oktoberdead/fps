@@ -77,7 +77,9 @@ public partial class TacticalGun : MonoBehaviour
 
     [Header("6.1. Interactive Press Check (Мышь)")]
     public float inspectCameraSlowdown = 0.15f;
-    public float inspectMouseYSens = 1.2f;
+    [Tooltip("Mouse Y sensitivity for dragging the slide by hand. Lower it for finer control.")]
+    [UnityEngine.Serialization.FormerlySerializedAs("inspectMouseYSens")]
+    [Min(0.001f)] public float slideDragSensitivity = 0.25f;
     public float inspectMouseXSens = 8.0f;
     public float inspectMaxSwayAngle = 25f;
 
@@ -193,10 +195,15 @@ public partial class TacticalGun : MonoBehaviour
     [SerializeField] private float feedArcHeight = 0.003f;
     [SerializeField] private Transform ejectionPoint;
     [SerializeField] private Vector3 ejectionDirection = new Vector3(1f, 1f, 0.2f);
+    [Tooltip("Fixed initial rotation of EJECTED CASES, in degrees relative to Ejection Point. Positive Y turns right.")]
+    [SerializeField] private Vector3 casingEjectionRotationOffset;
+    [Tooltip("Predictable casing spin, in radians/second on the Ejection Point's local axes. Positive Y yaws right.")]
+    [SerializeField] private Vector3 casingSpinBiasLocal = new Vector3(0f, 16f, 0f);
     [UnityEngine.Serialization.FormerlySerializedAs("ejectionForce")]
     [SerializeField] private float ejectionSpeed = 2.5f; // metres per second, not a Rigidbody impulse
     [UnityEngine.Serialization.FormerlySerializedAs("ejectionTorque")]
-    [SerializeField] private float ejectionSpin = 10f; // radians per second
+    [Tooltip("Random additional spin on top of the fixed casing spin (radians/second).")]
+    [SerializeField] private float ejectionSpin = 10f;
     [Tooltip("Slide travel (0 = closed, 1 = fully back) when the case STARTS following the slide.")]
     [Range(0f, 0.95f)] [SerializeField] private float spentCaseExtractionStart = 0.55f;
     [Tooltip("Slide travel at ejection; must be greater than Spent Case Extraction Start.")]
@@ -278,6 +285,21 @@ public partial class TacticalGun : MonoBehaviour
     public float chamberingPullThreshold = 0.7f;
     public float manualLockPullThreshold = 0.9f;
 
+    [Header("19.1 Manual Slide & Ejection Sounds")]
+    [Tooltip("Separate source for mechanical one-shots; created at runtime if empty and clips assigned.")]
+    public AudioSource slideAudioSource;
+    public AudioClip[] slideBackClips;
+    public AudioClip[] slideForwardClips;
+    public AudioClip[] liveRoundEjectClips;
+    public AudioClip[] spentCaseEjectClips;
+    [Tooltip("Optional separate source for a short seamless dragging loop (not for the one-shot clacks).")]
+    public AudioSource slideDragAudioSource;
+    public AudioClip slideBackDragLoop;
+    public AudioClip slideForwardDragLoop;
+    [Range(0f, 1f)] public float slideDragLoopVolume = 0.35f;
+    public float slideDragMinPitch = 0.8f;
+    public float slideDragMaxPitch = 1.25f;
+
     // --- ПРИВАТНЫЕ ПЕРЕМЕННЫЕ (ЕДИНСТВЕННЫЙ БЛОК НА ВЕСЬ КЛАСС) ---
     private Vector3 currentRecoilPos, targetRecoilPos;
     private Vector3 currentRecoilRot, targetRecoilRot;
@@ -295,6 +317,9 @@ public partial class TacticalGun : MonoBehaviour
     private float slideClickTimer = 0f;
     private float manualSlideAmount = 0f;
     private float manualInspectSwayX = 0f;
+    private bool manualStrokeReadyToFeed;
+    private bool manualEjectedThisStroke;
+    private int manualSlideAudioDirection;
 
     private LineRenderer laserLine;
     private GameObject magazineTopVisual;
