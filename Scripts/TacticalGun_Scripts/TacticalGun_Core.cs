@@ -162,13 +162,9 @@ public partial class TacticalGun
 
         if (isSlideLocked)
         {
-            if (!isHammerCocked) PlayRandomSound(triggerClickClips, 0.6f, 0.9f, 1.1f);
-            else
-            {
-                isHammerCocked = false;
-                PlayRandomSound(dryFireClips, 1.0f);
-                StartCoroutine(DropHammerVisualOnly());
-            }
+            // The rearward slide physically blocks the hammer. The trigger can
+            // move, but neither a dry fire nor a hammer animation is possible.
+            PlayRandomSound(triggerClickClips, 0.6f, 0.9f, 1.1f);
             return;
         }
 
@@ -182,7 +178,6 @@ public partial class TacticalGun
 
         if (isChamberLoaded && !isChamberSpent)
         {
-            isChamberSpent = true;
             StartCoroutine(TacticalFiringCycle());
         }
         else
@@ -265,6 +260,9 @@ public partial class TacticalGun
     private void HandleHammerInput()
     {
         if (!Input.GetKeyDown(hammerKey)) return;
+        // Manual decocking would pass the hammer through the open slide.
+        if (isSlideLocked || isManualSlidePull || isQuickRacking || isFiringRoutine ||
+            isHammerDropping || manualSlideAmount > 0.05f) return;
         if (Input.GetKey(modifierKey) || Input.GetKey(KeyCode.RightShift))
         {
             isHammerCocked = false;
@@ -457,6 +455,9 @@ public partial class TacticalGun
         float tDrop = 0f;
         while (tDrop < 1f) { tDrop += Time.deltaTime * hammerDropSpeed; if (hammer != null) hammer.localRotation = Quaternion.Slerp(cockedRot, uncockedRot, tDrop); yield return null; }
         if (hammer != null) hammer.localRotation = uncockedRot;
+        // Until impact this is still a live cartridge; only now does its visual
+        // become a spent case. Ignition and slide motion follow the impact.
+        isChamberSpent = true;
 
         if (ignitionDelay > 0f) yield return new WaitForSeconds(ignitionDelay);
 
@@ -520,25 +521,36 @@ public partial class TacticalGun
 
         Vector3 slideStartPos = slide != null ? slide.localPosition : slideBasePos;
         Vector3 slideBackTarget = slideBasePos + slideRecoilOffset;
-        float tSlideBack = 0f; float tHammerCock = 0f; bool casingEjected = false;
+        float tSlideBack = 0f; float tHammerCock = 0f;
+        float extractionElapsed = 0f;
+        bool casingEjected = false;
+        BeginSpentCaseExtraction();
 
-        while (tSlideBack < 1f || tHammerCock < 1f)
+        while (tSlideBack < 1f || tHammerCock < 1f || !casingEjected)
         {
+            extractionElapsed += Time.deltaTime;
             if (tSlideBack < 1f)
             {
-                tSlideBack += Time.deltaTime * slideBlowbackSpeed;
+                tSlideBack = Mathf.Min(1f, tSlideBack + Time.deltaTime * Mathf.Max(0.01f, slideBlowbackSpeed));
                 if (slide != null) slide.localPosition = Vector3.Lerp(slideStartPos, slideBackTarget, tSlideBack);
-                if (!casingEjected && tSlideBack >= ejectionSlideThreshold) { EjectChamberContents(); casingEjected = true; }
+            }
+            AdvanceSpentCaseExtraction();
+            // A fast slide may reach the port in a single frame. Keep the case
+            // visible following the slide briefly before creating its physics clone.
+            if (!casingEjected && tSlideBack >= Mathf.Clamp01(ejectionSlideThreshold) &&
+                extractionElapsed >= Mathf.Max(0f, minSpentExtractionTime))
+            {
+                EjectChamberContents();
+                casingEjected = true;
             }
             if (tHammerCock < 1f)
             {
-                tHammerCock += Time.deltaTime * hammerCockSpeed;
+                tHammerCock = Mathf.Min(1f, tHammerCock + Time.deltaTime * Mathf.Max(0.01f, hammerCockSpeed));
                 if (hammer != null) hammer.localRotation = Quaternion.Slerp(uncockedRot, cockedRot, tHammerCock);
             }
             yield return null;
         }
 
-        if (!casingEjected) EjectChamberContents();
         if (hammer != null) hammer.localRotation = cockedRot;
         isHammerCocked = true;
 

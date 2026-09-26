@@ -198,6 +198,8 @@ public partial class TacticalGun : MonoBehaviour
     [UnityEngine.Serialization.FormerlySerializedAs("ejectionTorque")]
     [SerializeField] private float ejectionSpin = 10f; // radians per second
     [SerializeField] private float ejectionSlideThreshold = 0.5f;
+    [Range(0f, 1f)] [SerializeField] private float spentCaseSlideFollow = 0.7f;
+    [Min(0f)] [SerializeField] private float minSpentExtractionTime = 0.04f;
     [SerializeField] private float casingLifetime = 5f;
     [SerializeField] private Vector3 casingScale = new Vector3(0.023f, 0.023f, 0.023f);
 
@@ -294,6 +296,11 @@ public partial class TacticalGun : MonoBehaviour
     private LineRenderer laserLine;
     private GameObject magazineTopVisual;
     private GameObject feedingRoundVisual;
+    private bool isCasingExtracting;
+    private Vector3 casingRestLocalPos;
+    private Quaternion casingRestLocalRot;
+    private Vector3 casingStartInSlideParent;
+    private Vector3 slideStartLocalPos;
     private bool isFeedingRound;
     private float feedingProgress;
     private float weaponBobTimer;

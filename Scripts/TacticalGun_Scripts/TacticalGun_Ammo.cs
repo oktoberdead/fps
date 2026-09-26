@@ -73,6 +73,8 @@ public partial class TacticalGun
             }
             foreach (Collider collider in spentCasingMesh.GetComponentsInChildren<Collider>(true))
                 collider.enabled = false;
+            casingRestLocalPos = spentCasingMesh.transform.localPosition;
+            casingRestLocalRot = spentCasingMesh.transform.localRotation;
         }
 
         if (roundPrefab != null && magazineTopPoint != null && liveRoundMesh != null)
@@ -172,12 +174,41 @@ public partial class TacticalGun
         }
     }
 
+    private void BeginSpentCaseExtraction()
+    {
+        if (spentCasingMesh == null || slide == null || slide.parent == null) return;
+        isCasingExtracting = true;
+        casingStartInSlideParent = slide.parent.InverseTransformPoint(spentCasingMesh.transform.position);
+        slideStartLocalPos = slide.localPosition;
+    }
+
+    private void AdvanceSpentCaseExtraction()
+    {
+        if (!isCasingExtracting || spentCasingMesh == null || slide == null) return;
+        // Works whether the visual is under the frame OR an old scene has it
+        // under the slide. Always compute the target in the slide-parent space
+        // to avoid double motion and to keep it attached while the gun sways.
+        Vector3 delta = (slide.localPosition - slideStartLocalPos) * spentCaseSlideFollow;
+        spentCasingMesh.transform.position = slide.parent.TransformPoint(casingStartInSlideParent + delta);
+    }
+
+    private void EndSpentCaseExtraction()
+    {
+        if (!isCasingExtracting) return;
+        isCasingExtracting = false;
+        if (spentCasingMesh == null) return;
+        spentCasingMesh.SetActive(false);
+        spentCasingMesh.transform.localPosition = casingRestLocalPos;
+        spentCasingMesh.transform.localRotation = casingRestLocalRot;
+    }
+
     private void EjectChamberContents()
     {
         if (!isChamberLoaded) return;
         SpawnEjectedRound(isChamberSpent);
         isChamberLoaded = false;
         isChamberSpent = false;
+        EndSpentCaseExtraction();
     }
 
     private void SpawnEjectedRound(bool spent)
