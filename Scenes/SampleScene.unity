@@ -3400,31 +3400,31 @@ MonoBehaviour:
   globalRecoilMultiplier: 1
   posRecoilMultiplier: 0.7
   rotRecoilMultiplier: 1
-  minPosRecoil: {x: -0.015, y: -0.008, z: -0.045}
-  maxPosRecoil: {x: 0.015, y: 0.025, z: 0.01}
-  minRotRecoil: {x: -22, y: -4, z: -4}
-  maxRotRecoil: {x: 4, y: 4, z: 4}
+  minPosRecoil: {x: -0.01, y: -0.01, z: -0.015}
+  maxPosRecoil: {x: 0.07, y: 0.035, z: 0.015}
+  minRotRecoil: {x: -4, y: -5, z: -34}
+  maxRotRecoil: {x: 4, y: 5, z: 5}
   progressiveRecoilMultiplier: 0.5
   progressiveRecoilCurve: 2
   progressiveRecoilBuildPerShot: 0.65
   progressiveRecoilDecayPerSecond: 0.8
   debugProgressiveRecoil: 0
-  posKickHip: {x: 0, y: 0.008, z: -0.018}
-  posKickHipMin: {x: -0.002, y: -0.002, z: -0.004}
-  posKickHipMax: {x: 0.002, y: 0.002, z: 0.004}
-  posKickADS: {x: 0, y: 0.004, z: -0.01}
-  posKickADSMin: {x: -0.001, y: -0.001, z: -0.003}
-  posKickADSMax: {x: 0.001, y: 0.001, z: 0.002}
+  posKickHip: {x: 0.026, y: 0.011, z: 0}
+  posKickHipMin: {x: -0.004, y: -0.002, z: -0.003}
+  posKickHipMax: {x: 0.004, y: 0.003, z: 0.003}
+  posKickADS: {x: 0.015, y: 0.006, z: 0}
+  posKickADSMin: {x: -0.002, y: -0.001, z: -0.0015}
+  posKickADSMax: {x: 0.003, y: 0.001, z: 0.0015}
   posSnappiness: 40
-  posReturnSpeed: 12
-  rotAngleHip: {x: -7.5, y: 0, z: 0.6}
-  rotAngleHipMin: {x: -1.5, y: -0.8, z: -0.8}
-  rotAngleHipMax: {x: 1.5, y: 0.8, z: 0.8}
-  rotAngleADS: {x: -4.5, y: 0, z: 0.3}
-  rotAngleADSMin: {x: -1, y: -0.35, z: -0.5}
-  rotAngleADSMax: {x: 1, y: 0.35, z: 0.5}
+  posReturnSpeed: 9
+  rotAngleHip: {x: 0, y: 0, z: -13}
+  rotAngleHipMin: {x: -0.8, y: -1.2, z: -2.5}
+  rotAngleHipMax: {x: 0.8, y: 1.2, z: 2.5}
+  rotAngleADS: {x: 0, y: 0, z: -8}
+  rotAngleADSMin: {x: -0.5, y: -0.55, z: -1.5}
+  rotAngleADSMax: {x: 0.5, y: 0.55, z: 1.5}
   rotSnappiness: 48
-  rotReturnSpeed: 10
+  rotReturnSpeed: 8
   mouseSwayIdle: 1
   mouseSwayWalk: 1.2
   mouseSwaySprint: 1.55
@@ -3540,11 +3540,11 @@ MonoBehaviour:
     posBase: {x: 0, y: 0, z: 0}
     posMin: {x: 0, y: 0, z: 0}
     posMax: {x: 0, y: 0, z: 0}
-  camShakeHip: 0.12
-  camShakeADS: 0.05
-  camRecoilPitchHip: 0.9
-  camRecoilPitchADS: 0.5
-  camRecoilYawJitter: 0.12
+  camShakeHip: 0.18
+  camShakeADS: 0.08
+  camRecoilPitchHip: 2.2
+  camRecoilPitchADS: 1.2
+  camRecoilYawJitter: 0.16
   maxMagAmmo: 999
   currentMagAmmo: 667
   isMagazineInserted: 1
@@ -9626,9 +9626,9 @@ MonoBehaviour:
   sprintBobAmountY: 0.05
   shakeRotMultiplier: {x: 3, y: 2, z: 1}
   shakeDecay: 10
-  recoilFollowSpeed: 35
-  recoilReturnSpeed: 8
-  maxRecoilPitch: 4
+  recoilFollowSpeed: 60
+  recoilReturnSpeed: 6.5
+  maxRecoilPitch: 5
   maxRecoilYaw: 1.5
   controller: {fileID: 0}
 --- !u!143 &1961619864
