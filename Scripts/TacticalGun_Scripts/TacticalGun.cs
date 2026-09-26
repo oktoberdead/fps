@@ -94,8 +94,14 @@ public partial class TacticalGun : MonoBehaviour
     public Vector3 maxRotRecoil = new Vector3(100f, 100f, 100f);
 
     [Header("7.1 Progressive Recoil (Парабола)")]
+    [Tooltip("Maximum EXTRA kick in a fast shot series: 0.5 means up to +50% before recoil ceilings.")]
     public float progressiveRecoilMultiplier = 0.5f;
-    public float progressiveRecoilCurve = 2.0f;
+    [Tooltip("Shape of the buildup: >1 delays the increase until later shots.")]
+    [Min(0.01f)] public float progressiveRecoilCurve = 2.0f;
+    [Range(0f, 1f)] public float progressiveRecoilBuildPerShot = 0.5f;
+    [Min(0f)] public float progressiveRecoilDecayPerSecond = 0.45f;
+    [Tooltip("Print buildup and applied factor on each shot for tuning.")]
+    public bool debugProgressiveRecoil;
 
     [Header("8. POSITIONAL RECOIL (HIP & ADS)")]
     public Vector3 posKickHip = new Vector3(0.25f, 0.15f, -0.3f);
@@ -278,6 +284,11 @@ public partial class TacticalGun : MonoBehaviour
     [UnityEngine.Serialization.FormerlySerializedAs("magDropTorque")]
     public float magDropSpin = 15f; // radians per second
 
+    [Header("18.2 Magazine Top Visibility")]
+    [Tooltip("Hide the magazine's top round behind a closed slide. It still exists logically and appears when the slide opens.")]
+    public bool hideMagTopWhenSlideClosed = true;
+    [Range(0f, 1f)] public float magTopRevealSlideFraction = 0.15f;
+
     [Header("19. Manual Slide Settings")]
     public float slideHoldThreshold = 0.2f;
     public float slideCheckPullSpeed = 10f;
@@ -290,6 +301,8 @@ public partial class TacticalGun : MonoBehaviour
     public AudioSource slideAudioSource;
     public AudioClip[] slideBackClips;
     public AudioClip[] slideForwardClips;
+    [Tooltip("Minimum actual slide travel (0..1) in a new direction before a back/front one-shot plays. Filters mouse jitter.")]
+    [Range(0f, 1f)] public float slideOneShotTravelThreshold = 0.1f;
     public AudioClip[] liveRoundEjectClips;
     public AudioClip[] spentCaseEjectClips;
     [Tooltip("Optional separate source for a short seamless dragging loop (not for the one-shot clacks).")]
@@ -303,6 +316,7 @@ public partial class TacticalGun : MonoBehaviour
     // --- ПРИВАТНЫЕ ПЕРЕМЕННЫЕ (ЕДИНСТВЕННЫЙ БЛОК НА ВЕСЬ КЛАСС) ---
     private Vector3 currentRecoilPos, targetRecoilPos;
     private Vector3 currentRecoilRot, targetRecoilRot;
+    private float progressiveRecoilHeat;
     private Vector3 currentSwayPos, currentSwayRot;
 
     private bool isADS = false;
@@ -320,6 +334,8 @@ public partial class TacticalGun : MonoBehaviour
     private bool manualStrokeReadyToFeed;
     private bool manualEjectedThisStroke;
     private int manualSlideAudioDirection;
+    private int pendingSlideAudioDirection;
+    private float pendingSlideAudioTravel;
 
     private LineRenderer laserLine;
     private GameObject magazineTopVisual;
@@ -339,7 +355,7 @@ public partial class TacticalGun : MonoBehaviour
     public bool previewInADS = false;
     public bool previewHammerCocked = false;
     public bool previewSlidePulled = false;
-    public enum PreviewMode { None, Recoil, SwayMouse, SwayMove, SlidePull }
+    public enum PreviewMode { None, Recoil, SwayMouse, SwayMove, SlidePull, ProgressiveKick }
     public PreviewMode currentPreviewMode = PreviewMode.None;
     
     [Header("Preview Axes")]
@@ -348,7 +364,7 @@ public partial class TacticalGun : MonoBehaviour
     
     [Space]
     [Range(-1f, 1f)] 
-    [Tooltip("0 = покой | +1 = чистый Max (потолок) | -1 = чистый Min (пол), БЕЗ Base")]
+    [Tooltip("Recoil: 0 = rest, +/-1 = recoil ceilings. ProgressiveKick: +/-1 = one max/min kick at full shot heat (after ceilings), with base.")]
     public float previewSlider = 0f;
 
     private const string PREFS_KEY = "TacticalGun_SaveData";
@@ -424,19 +440,29 @@ public partial class TacticalGun : MonoBehaviour
             {
                 posExtreme = towardMin ? minPosRecoil : maxPosRecoil;
                 rotExtreme = towardMin ? minRotRecoil : maxRotRecoil;
-
-                float prog = 1f + (progressiveRecoilMultiplier * Mathf.Pow(weight, progressiveRecoilCurve));
-                posExtreme *= prog;
-                rotExtreme *= prog;
-
+            }
+            else if (currentPreviewMode == PreviewMode.ProgressiveKick)
+            {
+                Vector3 posBase = previewInADS ? posKickADS : posKickHip;
+                Vector3 rotBase = previewInADS ? rotAngleADS : rotAngleHip;
+                Vector3 posVariation = previewInADS
+                    ? (towardMin ? posKickADSMin : posKickADSMax)
+                    : (towardMin ? posKickHipMin : posKickHipMax);
+                Vector3 rotVariation = previewInADS
+                    ? (towardMin ? rotAngleADSMin : rotAngleADSMax)
+                    : (towardMin ? rotAngleHipMin : rotAngleHipMax);
+                float factor = 1f + progressiveRecoilMultiplier *
+                               Mathf.Pow(weight, Mathf.Max(0.01f, progressiveRecoilCurve));
+                Vector3 posKick = (posBase + posVariation) * factor * posRecoilMultiplier * globalRecoilMultiplier;
+                Vector3 rotKick = (rotBase + rotVariation) * factor * rotRecoilMultiplier * globalRecoilMultiplier;
                 posExtreme = new Vector3(
-                    Mathf.Clamp(posExtreme.x, minPosRecoil.x, maxPosRecoil.x),
-                    Mathf.Clamp(posExtreme.y, minPosRecoil.y, maxPosRecoil.y),
-                    Mathf.Clamp(posExtreme.z, minPosRecoil.z, maxPosRecoil.z));
+                    Mathf.Clamp(posKick.x, minPosRecoil.x, maxPosRecoil.x),
+                    Mathf.Clamp(posKick.y, minPosRecoil.y, maxPosRecoil.y),
+                    Mathf.Clamp(posKick.z, minPosRecoil.z, maxPosRecoil.z));
                 rotExtreme = new Vector3(
-                    Mathf.Clamp(rotExtreme.x, minRotRecoil.x, maxRotRecoil.x),
-                    Mathf.Clamp(rotExtreme.y, minRotRecoil.y, maxRotRecoil.y),
-                    Mathf.Clamp(rotExtreme.z, minRotRecoil.z, maxRotRecoil.z));
+                    Mathf.Clamp(rotKick.x, minRotRecoil.x, maxRotRecoil.x),
+                    Mathf.Clamp(rotKick.y, minRotRecoil.y, maxRotRecoil.y),
+                    Mathf.Clamp(rotKick.z, minRotRecoil.z, maxRotRecoil.z));
             }
             else if (currentPreviewMode == PreviewMode.SwayMouse)
             {

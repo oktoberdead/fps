@@ -129,7 +129,15 @@ public partial class TacticalGun
         if (magazineTopVisual != null)
         {
             magazineTopVisual.transform.SetPositionAndRotation(magazineTopPoint.position, magazineTopPoint.rotation);
-            magazineTopVisual.SetActive(isMagazineInserted && currentMagAmmo > 0 && !isFeedingRound);
+            bool showTop = isMagazineInserted && currentMagAmmo > 0 && !isFeedingRound;
+            if (showTop && hideMagTopWhenSlideClosed && slide != null &&
+                slideRecoilOffset.sqrMagnitude > 0.000001f)
+            {
+                float openAmount = Vector3.Dot(slide.localPosition - slideBasePos, slideRecoilOffset) /
+                                   slideRecoilOffset.sqrMagnitude;
+                showTop = openAmount >= magTopRevealSlideFraction;
+            }
+            magazineTopVisual.SetActive(showTop);
         }
 
         if (feedingRoundVisual != null)

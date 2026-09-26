@@ -174,7 +174,9 @@ public partial class TacticalGun
             {
                 bool canFeed = processChambering && manualStrokeReadyToFeed;
                 float startingCloseProgress = 1f - pulled;
-                if (manualSlideAudioDirection != -1 && pulled > 0.05f)
+                // Releasing a tiny press-check should not make a full-stroke clack.
+                if (manualSlideAudioDirection != -1 &&
+                    pulled >= Mathf.Max(0.05f, slideOneShotTravelThreshold))
                     PlaySlideOneShot(slideForwardClips);
                 manualSlideAmount = 0f;
                 StartCoroutine(ManualSlideReturnSequence(canFeed, startingCloseProgress));
@@ -496,12 +498,6 @@ public partial class TacticalGun
         Time.fixedDeltaTime = 0.02f * Time.timeScale;
     }
 
-    private float GetSeverityAxis(float v, float min, float max)
-    {
-        if (v >= 0f) return max > 0f ? Mathf.Clamp01(v / max) : 0f;
-        return min < 0f ? Mathf.Clamp01(v / min) : 0f;
-    }
-
     private IEnumerator TacticalFiringCycle()
     {
         isFiringRoutine = true;
@@ -538,21 +534,20 @@ public partial class TacticalGun
         rawPosKick *= (1f + (isADS ? adsPosSpeedMult : hipPosSpeedMult) * speedRatio);
         rawRotKick *= (1f + (isADS ? adsRotSpeedMult : hipRotSpeedMult) * speedRatio);
 
-        float sPx = GetSeverityAxis(targetRecoilPos.x, minPosRecoil.x, maxPosRecoil.x);
-        float sPy = GetSeverityAxis(targetRecoilPos.y, minPosRecoil.y, maxPosRecoil.y);
-        float sPz = GetSeverityAxis(targetRecoilPos.z, minPosRecoil.z, maxPosRecoil.z);
-        float sRx = GetSeverityAxis(targetRecoilRot.x, minRotRecoil.x, maxRotRecoil.x);
-        float sRy = GetSeverityAxis(targetRecoilRot.y, minRotRecoil.y, maxRotRecoil.y);
-        float sRz = GetSeverityAxis(targetRecoilRot.z, minRotRecoil.z, maxRotRecoil.z);
+        // Build from actual consecutive shots, not from the almost-zero recoil
+        // target (which returns to zero between semi-auto shots). The first shot
+        // is baseline; only following shots in a series receive extra kick.
+        float shotHeat = progressiveRecoilHeat;
+        float progressiveFactor = 1f + progressiveRecoilMultiplier *
+                                  Mathf.Pow(shotHeat, Mathf.Max(0.01f, progressiveRecoilCurve));
+        progressiveRecoilHeat = Mathf.Clamp01(shotHeat + progressiveRecoilBuildPerShot);
+        rawPosKick *= progressiveFactor;
+        rawRotKick *= progressiveFactor;
 
-        float severity = Mathf.Max(sPx, sPy, sPz, sRx, sRy, sRz);
-        float progressiveMultiplier = 1f + (progressiveRecoilMultiplier * Mathf.Pow(severity, progressiveRecoilCurve));
-
-        rawPosKick *= progressiveMultiplier;
-        rawRotKick *= progressiveMultiplier;
-
-        targetRecoilPos += rawPosKick * posRecoilMultiplier * globalRecoilMultiplier;
-        targetRecoilRot += rawRotKick * rotRecoilMultiplier * globalRecoilMultiplier;
+        Vector3 unclampedPos = targetRecoilPos + rawPosKick * posRecoilMultiplier * globalRecoilMultiplier;
+        Vector3 unclampedRot = targetRecoilRot + rawRotKick * rotRecoilMultiplier * globalRecoilMultiplier;
+        targetRecoilPos = unclampedPos;
+        targetRecoilRot = unclampedRot;
 
         targetRecoilPos = new Vector3(
             Mathf.Clamp(targetRecoilPos.x, minPosRecoil.x, maxPosRecoil.x),
@@ -563,6 +558,9 @@ public partial class TacticalGun
             Mathf.Clamp(targetRecoilRot.x, minRotRecoil.x, maxRotRecoil.x),
             Mathf.Clamp(targetRecoilRot.y, minRotRecoil.y, maxRotRecoil.y),
             Mathf.Clamp(targetRecoilRot.z, minRotRecoil.z, maxRotRecoil.z));
+
+        if (debugProgressiveRecoil)
+            Debug.Log($"[TacticalGun] Shot heat {shotHeat:F2}, progressive factor {progressiveFactor:F2}, next heat {progressiveRecoilHeat:F2}; before ceilings pos {unclampedPos}, rot {unclampedRot}; after ceilings pos {targetRecoilPos}, rot {targetRecoilRot}", this);
 
         if (fpsController != null) fpsController.AddCameraShake(isADS ? camShakeADS : camShakeHip);
 

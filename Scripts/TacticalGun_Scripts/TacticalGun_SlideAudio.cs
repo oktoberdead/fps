@@ -29,7 +29,7 @@ public partial class TacticalGun
 
     private void UpdateManualSlideSound(float slideDelta)
     {
-        // Only play the click when the hand changes direction, not on every frame.
+        // Ignore tiny deltas; the one-shot also needs enough real travel in a direction.
         if (Mathf.Abs(slideDelta) < 0.002f)
         {
             StopSlideDragLoop();
@@ -37,7 +37,14 @@ public partial class TacticalGun
         }
 
         int direction = slideDelta > 0f ? 1 : -1;
-        if (direction != manualSlideAudioDirection)
+        if (direction != pendingSlideAudioDirection)
+        {
+            pendingSlideAudioDirection = direction;
+            pendingSlideAudioTravel = 0f;
+        }
+        pendingSlideAudioTravel += Mathf.Abs(slideDelta);
+        if (direction != manualSlideAudioDirection &&
+            pendingSlideAudioTravel >= slideOneShotTravelThreshold)
         {
             PlaySlideOneShot(direction > 0 ? slideBackClips : slideForwardClips);
             manualSlideAudioDirection = direction;
@@ -88,5 +95,7 @@ public partial class TacticalGun
     {
         StopSlideDragLoop();
         manualSlideAudioDirection = 0;
+        pendingSlideAudioDirection = 0;
+        pendingSlideAudioTravel = 0f;
     }
 }

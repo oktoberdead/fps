@@ -7,6 +7,8 @@ public partial class TacticalGun
         UpdateLaserLogic();
         if (!Application.isPlaying) return;
 
+        progressiveRecoilHeat = Mathf.MoveTowards(progressiveRecoilHeat, 0f,
+            Mathf.Max(0f, progressiveRecoilDecayPerSecond) * Time.deltaTime);
         targetRecoilPos = Vector3.Lerp(targetRecoilPos, Vector3.zero, posReturnSpeed * Time.deltaTime);
         currentRecoilPos = Vector3.Slerp(currentRecoilPos, targetRecoilPos, posSnappiness * Time.deltaTime);
         targetRecoilRot = Vector3.Lerp(targetRecoilRot, Vector3.zero, rotReturnSpeed * Time.deltaTime);
@@ -39,8 +41,6 @@ public partial class TacticalGun
         transform.localPosition = Vector3.Lerp(transform.localPosition, targetPos + currentRecoilPos + currentSwayPos, Time.deltaTime * currentMoveSpeed);
         transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.Euler(targetRot + currentRecoilRot + currentSwayRot), Time.deltaTime * currentMoveSpeed);
 
-        UpdateAmmoVisuals();
-
         if (slide != null && !isFiringRoutine && !isQuickRacking)
         {
             if (isSlideLocked)
@@ -63,6 +63,8 @@ public partial class TacticalGun
             Quaternion targetHammerRot = isHammerCocked ? GetCockedRotation(hammerCockedAngle) : hammerBaseRotation;
             hammer.localRotation = Quaternion.Slerp(hammer.localRotation, targetHammerRot, Time.deltaTime * 25f);
         }
+
+        UpdateAmmoVisuals();
     }
 
     private float EvalSway(float input, float amount, float baseVal, float minVal, float maxVal)
