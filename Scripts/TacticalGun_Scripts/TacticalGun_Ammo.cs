@@ -182,13 +182,16 @@ public partial class TacticalGun
         slideStartLocalPos = slide.localPosition;
     }
 
-    private void AdvanceSpentCaseExtraction()
+    private void AdvanceSpentCaseExtraction(float slideBackProgress, float catchAt)
     {
         if (!isCasingExtracting || spentCasingMesh == null || slide == null) return;
-        // Works whether the visual is under the frame OR an old scene has it
-        // under the slide. Always compute the target in the slide-parent space
-        // to avoid double motion and to keep it attached while the gun sways.
-        Vector3 delta = (slide.localPosition - slideStartLocalPos) * spentCaseSlideFollow;
+        // The slide first travels freely while the case remains in the chamber.
+        // Only the travel AFTER the catch point moves the case. Doing this in
+        // slide-parent space also cancels automatic motion if an older scene has
+        // the visual parented to the slide rather than the stationary frame.
+        float travelAfterCatch = Mathf.Max(0f, slideBackProgress - catchAt);
+        Vector3 fullSlideTravel = slideBasePos + slideRecoilOffset - slideStartLocalPos;
+        Vector3 delta = fullSlideTravel * (travelAfterCatch * spentCaseSlideFollow);
         spentCasingMesh.transform.position = slide.parent.TransformPoint(casingStartInSlideParent + delta);
     }
 

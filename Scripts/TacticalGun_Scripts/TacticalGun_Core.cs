@@ -19,6 +19,8 @@ public partial class TacticalGun
         if (hammer != null) hammer.localRotation = isHammerCocked ? GetCockedRotation(hammerCockedAngle) : hammerBaseRotation;
         SetupLaser();
         SetupAmmoVisuals();
+        if (ejectionSlideThreshold < spentCaseExtractionStart + 0.05f)
+            Debug.LogWarning("[TacticalGun] Ejection Slide Threshold must exceed Spent Case Extraction Start by 0.05. Ejection is postponed at runtime; adjust both values in the Inspector.", this);
     }
 
     private void SetupLaser()
@@ -524,6 +526,10 @@ public partial class TacticalGun
         float tSlideBack = 0f; float tHammerCock = 0f;
         float extractionElapsed = 0f;
         bool casingEjected = false;
+        // An invalid inspector combination should not eject before extraction
+        // starts. A small travel gap gives the case at least some path to move.
+        float catchAt = Mathf.Clamp(spentCaseExtractionStart, 0f, 0.95f);
+        float ejectAt = Mathf.Clamp01(Mathf.Max(ejectionSlideThreshold, catchAt + 0.05f));
         BeginSpentCaseExtraction();
 
         while (tSlideBack < 1f || tHammerCock < 1f || !casingEjected)
@@ -534,10 +540,10 @@ public partial class TacticalGun
                 tSlideBack = Mathf.Min(1f, tSlideBack + Time.deltaTime * Mathf.Max(0.01f, slideBlowbackSpeed));
                 if (slide != null) slide.localPosition = Vector3.Lerp(slideStartPos, slideBackTarget, tSlideBack);
             }
-            AdvanceSpentCaseExtraction();
+            AdvanceSpentCaseExtraction(tSlideBack, catchAt);
             // A fast slide may reach the port in a single frame. Keep the case
             // visible following the slide briefly before creating its physics clone.
-            if (!casingEjected && tSlideBack >= Mathf.Clamp01(ejectionSlideThreshold) &&
+            if (!casingEjected && tSlideBack >= ejectAt &&
                 extractionElapsed >= Mathf.Max(0f, minSpentExtractionTime))
             {
                 EjectChamberContents();

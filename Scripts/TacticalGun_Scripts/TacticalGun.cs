@@ -197,7 +197,10 @@ public partial class TacticalGun : MonoBehaviour
     [SerializeField] private float ejectionSpeed = 2.5f; // metres per second, not a Rigidbody impulse
     [UnityEngine.Serialization.FormerlySerializedAs("ejectionTorque")]
     [SerializeField] private float ejectionSpin = 10f; // radians per second
-    [SerializeField] private float ejectionSlideThreshold = 0.5f;
+    [Tooltip("Slide travel (0 = closed, 1 = fully back) when the case STARTS following the slide.")]
+    [Range(0f, 0.95f)] [SerializeField] private float spentCaseExtractionStart = 0.55f;
+    [Tooltip("Slide travel at ejection; must be greater than Spent Case Extraction Start.")]
+    [Range(0f, 1f)] [SerializeField] private float ejectionSlideThreshold = 0.5f;
     [Range(0f, 1f)] [SerializeField] private float spentCaseSlideFollow = 0.7f;
     [Min(0f)] [SerializeField] private float minSpentExtractionTime = 0.04f;
     [SerializeField] private float casingLifetime = 5f;
