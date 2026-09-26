@@ -45,7 +45,11 @@ public partial class TacticalGun : MonoBehaviour
     public float hammerDropSpeed = 20f;
     public float hammerCockSpeed = 45f;
     public float ignitionDelay = 0.005f;
+    [Min(0.005f)] public float triggerPullDuration = 0.045f;
+    [Range(0.05f, 1f)] public float triggerBreakFraction = 0.45f;
+    [Tooltip("Time after releasing the button before the trigger starts resetting.")]
     public float triggerResetDelay = 0.045f;
+    [Min(0.005f)] public float triggerReturnDuration = 0.05f;
     public float slideBlowbackSpeed = 33f;
     public float slideReturnSpeed = 20f;
 
@@ -173,11 +177,26 @@ public partial class TacticalGun : MonoBehaviour
     public bool isBulletTimeActive = false;
 
     [Header("13. Ejection Settings")]
+    [Tooltip("Asset prefab of the spent casing, not the casing displayed in the chamber.")]
     [SerializeField] private GameObject casingPrefab;
+    [Tooltip("Asset prefab of a complete cartridge; used for the magazine, feeding and live-round ejection.")]
+    [SerializeField] private GameObject roundPrefab;
+    [Tooltip("A marker at the feed lips, parented to the magazine mesh.")]
+    [SerializeField] private Transform magazineTopPoint;
+    [Tooltip("Use an empty chamber marker when no chamber meshes are in the hierarchy.")]
+    [SerializeField] private Transform chamberPoint;
+    [Tooltip("Fallback under the body (EjectionPoint's parent); tune if you removed the chamber meshes.")]
+    [SerializeField] private Vector3 chamberLocalPosition = new Vector3(-0.95196813f, 0.020080771f, 2.5098643f);
+    [SerializeField] private Vector3 magazineTopLocalPosition = new Vector3(0.5f, 0f, -0.7f);
+    [Range(0f, 0.9f)] [SerializeField] private float feedStartOnReturn = 0.15f;
+    [Range(0.1f, 1f)] [SerializeField] private float feedEndOnReturn = 0.85f;
+    [SerializeField] private float feedArcHeight = 0.003f;
     [SerializeField] private Transform ejectionPoint;
     [SerializeField] private Vector3 ejectionDirection = new Vector3(1f, 1f, 0.2f);
-    [SerializeField] private float ejectionForce = 2.5f;
-    [SerializeField] private float ejectionTorque = 10f;
+    [UnityEngine.Serialization.FormerlySerializedAs("ejectionForce")]
+    [SerializeField] private float ejectionSpeed = 2.5f; // metres per second, not a Rigidbody impulse
+    [UnityEngine.Serialization.FormerlySerializedAs("ejectionTorque")]
+    [SerializeField] private float ejectionSpin = 10f; // radians per second
     [SerializeField] private float ejectionSlideThreshold = 0.5f;
     [SerializeField] private float casingLifetime = 5f;
     [SerializeField] private Vector3 casingScale = new Vector3(0.023f, 0.023f, 0.023f);
@@ -222,6 +241,7 @@ public partial class TacticalGun : MonoBehaviour
     [Header("18. M1911 SAO Mechanics")]
     public int maxMagAmmo = 7;
     public int currentMagAmmo = 7;
+    public bool isMagazineInserted = true;
     public bool isChamberLoaded = true;
     public bool isChamberSpent = false;
     public bool isHammerCocked = true;
@@ -241,8 +261,10 @@ public partial class TacticalGun : MonoBehaviour
 
     [Header("18.1 Tactical Reload Physics")]
     public Vector3 magDropDirection = new Vector3(0.2f, -1f, 0f);
-    public float magDropForce = 1.5f;
-    public float magDropTorque = 15f;
+    [UnityEngine.Serialization.FormerlySerializedAs("magDropForce")]
+    public float magDropSpeed = 1.5f; // metres per second
+    [UnityEngine.Serialization.FormerlySerializedAs("magDropTorque")]
+    public float magDropSpin = 15f; // radians per second
 
     [Header("19. Manual Slide Settings")]
     public float slideHoldThreshold = 0.2f;
@@ -258,6 +280,8 @@ public partial class TacticalGun : MonoBehaviour
 
     private bool isADS = false;
     private bool isFiringRoutine = false;
+    private bool isTriggerCycleActive = false;
+    private bool isHammerDropping = false;
     private bool isReloading = false;
     private bool isManualSlidePull = false;
     private bool isQuickRacking = false;
@@ -268,7 +292,10 @@ public partial class TacticalGun : MonoBehaviour
     private float manualInspectSwayX = 0f;
 
     private LineRenderer laserLine;
-    private Coroutine triggerResetCoroutine;
+    private GameObject magazineTopVisual;
+    private GameObject feedingRoundVisual;
+    private bool isFeedingRound;
+    private float feedingProgress;
     private float weaponBobTimer;
     private SimpleFPSController fpsController;
 

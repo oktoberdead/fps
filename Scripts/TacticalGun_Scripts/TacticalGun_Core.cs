@@ -18,6 +18,7 @@ public partial class TacticalGun
 
         if (hammer != null) hammer.localRotation = isHammerCocked ? GetCockedRotation(hammerCockedAngle) : hammerBaseRotation;
         SetupLaser();
+        SetupAmmoVisuals();
     }
 
     private void SetupLaser()
@@ -41,7 +42,7 @@ public partial class TacticalGun
         if (Input.GetKeyDown(laserToggleKey)) showLaser = !showLaser;
         if (Input.GetKeyDown(bulletTimeKey)) ToggleBulletTime();
 
-        if (isReloading || isQuickRacking) return;
+        if (isReloading || isQuickRacking || isFiringRoutine) return;
 
         HandleSlideInput();
 
@@ -92,12 +93,7 @@ public partial class TacticalGun
                     PlayRandomSound(cockSounds, 0.8f, 0.95f, 1.05f);
                 }
 
-                if (manualSlideAmount >= ejectionSlideThreshold && isChamberLoaded)
-                {
-                    EjectCasing();
-                    isChamberLoaded = false;
-                    isChamberSpent = false;
-                }
+                if (manualSlideAmount >= ejectionSlideThreshold) EjectChamberContents();
             }
         }
 
@@ -119,8 +115,11 @@ public partial class TacticalGun
 
             bool wantManualLock = pulled >= manualLockPullThreshold &&
                                  (Input.GetKey(modifierKey) || Input.GetKey(KeyCode.RightShift));
+            // The follower only locks the slide back if an EMPTY magazine is in the gun.
+            bool emptyMagLock = pulled >= manualLockPullThreshold && isMagazineInserted &&
+                                currentMagAmmo <= 0 && !isChamberLoaded;
 
-            if (wantManualLock)
+            if (wantManualLock || emptyMagLock)
             {
                 isSlideLocked = true;
                 manualSlideAmount = 1f;
@@ -128,18 +127,8 @@ public partial class TacticalGun
             }
             else
             {
-                if (processChambering) ProcessManualChambering(pulled);
-
-                if (currentMagAmmo <= 0 && !isChamberLoaded && pulled >= manualLockPullThreshold)
-                {
-                    isSlideLocked = true;
-                    manualSlideAmount = 1f;
-                    PlayRandomSound(slideLockSounds, 1f, 0.95f, 1.05f);
-                }
-                else
-                {
-                    manualSlideAmount = 0f;
-                }
+                manualSlideAmount = 0f;
+                StartCoroutine(ManualSlideReturnSequence(processChambering && pulled >= chamberingPullThreshold));
             }
         }
         else if (slideClickTimer < slideHoldThreshold && slideClickTimer > 0f && !isSlideLocked)
@@ -150,39 +139,26 @@ public partial class TacticalGun
         slideClickTimer = 0f;
     }
 
-    private void ProcessManualChambering(float pullAmount)
+    private IEnumerator ManualSlideReturnSequence(bool canFeed)
     {
-        if (pullAmount < chamberingPullThreshold) return;
-
-        if (isChamberLoaded)
-        {
-            EjectCasing();
-            isChamberLoaded = false;
-            isChamberSpent = false;
-        }
-
-        if (currentMagAmmo > 0)
-        {
-            currentMagAmmo--;
-            isChamberLoaded = true;
-            isChamberSpent = false;
-            isHammerCocked = true;
-        }
+        isQuickRacking = true;
+        isFiringRoutine = true;
+        yield return ReturnSlideAndFeed(slideCheckPullSpeed, canFeed);
+        isQuickRacking = false;
+        isFiringRoutine = false;
     }
 
     private void HandleFireInput()
     {
-        if (Input.GetKeyDown(fireKey) && !isFiringRoutine && !isQuickRacking)
-        {
-            TryFireM1911();
-        }
+        // The sear can break only once per press. A held trigger stays back even
+        // after the slide cycles; another shot requires release and reset.
+        if (Input.GetKeyDown(fireKey) && !isTriggerCycleActive)
+            StartCoroutine(TriggerCycle());
     }
 
     private void TryFireM1911()
     {
-        if (isManualSlidePull || isQuickRacking || manualSlideAmount > 0.05f) return;
-
-        StartCoroutine(AnimateTriggerRoutine());
+        if (isReloading || isFiringRoutine || isHoldingSlideBtn || isManualSlidePull || isQuickRacking || manualSlideAmount > 0.05f) return;
 
         if (isSlideLocked)
         {
@@ -218,6 +194,7 @@ public partial class TacticalGun
 
     private IEnumerator DropHammerVisualOnly()
     {
+        isHammerDropping = true;
         Quaternion cockedRot = GetCockedRotation(hammerCockedAngle);
         Quaternion uncockedRot = hammerBaseRotation;
         float tDrop = 0f;
@@ -228,38 +205,61 @@ public partial class TacticalGun
             yield return null;
         }
         if (hammer != null) hammer.localRotation = uncockedRot;
+        isHammerDropping = false;
     }
 
-    private IEnumerator AnimateTriggerRoutine()
+    private IEnumerator TriggerCycle()
     {
-        if (trigger == null) yield break;
-
-        Vector3 axis = triggerLocalAxis == HammerAxis.LocalX ? Vector3.right : (triggerLocalAxis == HammerAxis.LocalY ? Vector3.up : Vector3.forward);
+        isTriggerCycleActive = true;
+        Vector3 axis = triggerLocalAxis == HammerAxis.LocalX ? Vector3.right :
+            (triggerLocalAxis == HammerAxis.LocalY ? Vector3.up : Vector3.forward);
         Quaternion pulledRot = triggerBaseRotation * Quaternion.AngleAxis(triggerPullAngle, axis);
         Vector3 pulledPos = triggerBasePos + triggerPullOffset;
 
-        float t = 0f;
-        while (t < 1f)
+        float pull = 0f;
+        bool searReleased = false;
+        while (Input.GetKey(fireKey) && pull < 1f)
         {
-            t += Time.deltaTime * 35f;
-            trigger.localRotation = Quaternion.Lerp(triggerBaseRotation, pulledRot, t);
-            trigger.localPosition = Vector3.Lerp(triggerBasePos, pulledPos, t);
+            pull = Mathf.Min(1f, pull + Time.deltaTime / Mathf.Max(0.005f, triggerPullDuration));
+            if (trigger != null)
+            {
+                trigger.localRotation = Quaternion.Lerp(triggerBaseRotation, pulledRot, pull);
+                trigger.localPosition = Vector3.Lerp(triggerBasePos, pulledPos, pull);
+            }
+
+            // The hammer starts falling BEFORE the trigger finishes its travel.
+            // An early release (before this threshold) does not fire.
+            if (!searReleased && pull >= triggerBreakFraction)
+            {
+                searReleased = true;
+                TryFireM1911();
+            }
             yield return null;
         }
 
-        yield return new WaitForSeconds(triggerResetDelay);
+        // Once pulled, keep the trigger back as long as the finger is on it.
+        while (Input.GetKey(fireKey)) yield return null;
+        if (triggerResetDelay > 0f) yield return new WaitForSeconds(triggerResetDelay);
 
-        t = 0f;
-        while (t < 1f)
+        Quaternion resetFromRot = trigger != null ? trigger.localRotation : pulledRot;
+        Vector3 resetFromPos = trigger != null ? trigger.localPosition : pulledPos;
+        float reset = 0f;
+        while (reset < 1f)
         {
-            t += Time.deltaTime * 20f;
-            trigger.localRotation = Quaternion.Lerp(pulledRot, triggerBaseRotation, t);
-            trigger.localPosition = Vector3.Lerp(pulledPos, triggerBasePos, t);
+            reset = Mathf.Min(1f, reset + Time.deltaTime / Mathf.Max(0.005f, triggerReturnDuration));
+            if (trigger != null)
+            {
+                trigger.localRotation = Quaternion.Lerp(resetFromRot, triggerBaseRotation, reset);
+                trigger.localPosition = Vector3.Lerp(resetFromPos, triggerBasePos, reset);
+            }
             yield return null;
         }
-
-        trigger.localRotation = triggerBaseRotation;
-        trigger.localPosition = triggerBasePos;
+        if (trigger != null)
+        {
+            trigger.localRotation = triggerBaseRotation;
+            trigger.localPosition = triggerBasePos;
+        }
+        isTriggerCycleActive = false;
     }
 
     private void HandleHammerInput()
@@ -287,57 +287,115 @@ public partial class TacticalGun
 
     private IEnumerator QuickRackSequence()
     {
-        isQuickRacking = true; isFiringRoutine = true;
-        Vector3 slideStart = slide != null ? slide.localPosition : Vector3.zero;
+        isQuickRacking = true;
+        isFiringRoutine = true;
+        Vector3 slideStart = slide != null ? slide.localPosition : slideBasePos;
         Vector3 slideBack = slideBasePos + slideRecoilOffset;
-        float t = 0f; bool casingEjected = false; bool hammerCockedThisRack = false;
+        float t = 0f;
+        bool ejected = false;
+        bool cockedThisRack = false;
 
         while (t < 1f)
         {
-            t += Time.deltaTime * slideQuickRackSpeed;
+            t = Mathf.Min(1f, t + Time.deltaTime * Mathf.Max(0.01f, slideQuickRackSpeed));
             if (slide != null) slide.localPosition = Vector3.Lerp(slideStart, slideBack, t);
 
-            if (!hammerCockedThisRack && t > 0.3f) { isHammerCocked = true; hammerCockedThisRack = true; PlayRandomSound(cockSounds, 0.9f); }
-            if (!casingEjected && t >= ejectionSlideThreshold)
+            if (!cockedThisRack && t >= 0.3f)
             {
-                if (isChamberLoaded) { EjectCasing(); isChamberLoaded = false; isChamberSpent = false; }
-                casingEjected = true;
+                isHammerCocked = true;
+                cockedThisRack = true;
+                PlayRandomSound(cockSounds, 0.9f);
+            }
+            if (!ejected && t >= ejectionSlideThreshold)
+            {
+                EjectChamberContents();
+                ejected = true;
             }
             yield return null;
         }
 
         if (slide != null) slide.localPosition = slideBack;
-        if (currentMagAmmo > 0) { currentMagAmmo--; isChamberLoaded = true; isChamberSpent = false; }
+        if (isMagazineInserted && currentMagAmmo <= 0 && !isChamberLoaded)
+        {
+            isSlideLocked = true;
+            PlayRandomSound(slideLockSounds, 1f, 0.95f, 1.05f);
+        }
+        else
+        {
+            yield return ReturnSlideAndFeed(slideQuickRackSpeed, true);
+        }
+        isQuickRacking = false;
+        isFiringRoutine = false;
+    }
 
-        t = 0f;
-        Vector3 returnStart = slide != null ? slide.localPosition : slideBack;
+    // One slide-return path for a shot, a tap rack, a manual pull and slide release.
+    // The top cartridge leaves the magazine on the forward stroke; the counter
+    // changes only when it has actually reached the chamber.
+    private IEnumerator ReturnSlideAndFeed(float speed, bool canFeed)
+    {
+        Vector3 start = slide != null ? slide.localPosition : slideBasePos + slideRecoilOffset;
+        float t = 0f;
+        bool feedStarted = false;
+        float feedStart = Mathf.Clamp01(feedStartOnReturn);
         while (t < 1f)
         {
-            t += Time.deltaTime * slideQuickRackSpeed;
-            if (slide != null) slide.localPosition = Vector3.Lerp(returnStart, slideBasePos, t);
+            t = Mathf.Min(1f, t + Time.deltaTime * Mathf.Max(0.01f, speed));
+            if (slide != null) slide.localPosition = Vector3.Lerp(start, slideBasePos, t);
+            if (canFeed && !feedStarted && t >= feedStart)
+            {
+                BeginFeed();
+                feedStarted = true;
+            }
+            AdvanceFeed(t);
             yield return null;
         }
-
+        CompleteFeed(); // also handles a short/low-frame-rate animation
         if (slide != null) slide.localPosition = slideBasePos;
-        isQuickRacking = false; isFiringRoutine = false;
     }
 
     private IEnumerator ReloadSequence()
     {
         isReloading = true;
+        isMagazineInserted = false;
         if (magMesh != null) magMesh.SetActive(false);
 
         if (droppedMagPrefab != null && magMesh != null && fpsController != null)
         {
             GameObject droppedMag = Instantiate(droppedMagPrefab, magMesh.transform.position, magMesh.transform.rotation);
             droppedMag.transform.localScale = magMesh.transform.lossyScale;
+            if (currentMagAmmo > 0 && roundPrefab != null && magazineTopPoint != null)
+            {
+                GameObject top = Instantiate(roundPrefab, droppedMag.transform);
+                top.name = "MagazineTopRound";
+                top.transform.localPosition = magazineTopPoint.localPosition;
+                top.transform.localRotation = magazineTopPoint.localRotation;
+                top.transform.localScale = Vector3.one;
+                foreach (Collider collider in top.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
+                Rigidbody topBody = top.GetComponent<Rigidbody>();
+                if (topBody != null) { topBody.isKinematic = true; topBody.useGravity = false; }
+            }
+
+            // The model prefab has no collider, so without one the dropped mag
+            // passes straight through the floor.
+            if (droppedMag.GetComponent<Collider>() == null)
+            {
+                MeshFilter mesh = droppedMag.GetComponent<MeshFilter>();
+                if (mesh != null && mesh.sharedMesh != null)
+                {
+                    BoxCollider box = droppedMag.AddComponent<BoxCollider>();
+                    box.center = mesh.sharedMesh.bounds.center;
+                    box.size = mesh.sharedMesh.bounds.size;
+                }
+            }
             Rigidbody rb = droppedMag.GetComponent<Rigidbody>();
             if (rb == null) { rb = droppedMag.AddComponent<Rigidbody>(); rb.mass = 0.25f; rb.interpolation = RigidbodyInterpolation.Interpolate; }
 
-            Vector3 dropForceDir = fpsController.playerCamera.transform.TransformDirection(magDropDirection.normalized);
-            rb.AddForce(dropForceDir * magDropForce, ForceMode.Impulse);
-            Vector3 randomTorque = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized;
-            rb.AddTorque(randomTorque * magDropTorque, ForceMode.Impulse);
+            Vector3 dropDirection = fpsController.playerCamera.transform.TransformDirection(magDropDirection.normalized);
+            rb.linearVelocity = dropDirection * Mathf.Max(0f, magDropSpeed);
+            rb.angularVelocity = Random.onUnitSphere * Mathf.Abs(magDropSpin);
+            foreach (Collider playerCollider in fpsController.GetComponents<Collider>())
+                foreach (Collider droppedCollider in droppedMag.GetComponentsInChildren<Collider>())
+                    Physics.IgnoreCollision(droppedCollider, playerCollider);
 
             Destroy(droppedMag, 5f);
         }
@@ -346,6 +404,7 @@ public partial class TacticalGun
         yield return new WaitForSeconds(1.2f);
 
         currentMagAmmo = maxMagAmmo;
+        isMagazineInserted = true;
         if (magMesh != null) magMesh.SetActive(true);
         PlayRandomSound(magInsertSounds, 1f, 0.95f, 1.05f);
 
@@ -362,14 +421,17 @@ public partial class TacticalGun
     {
         if (!isSlideLocked) return;
         isSlideLocked = false;
-
-        if (currentMagAmmo > 0 && !isChamberLoaded)
-        {
-            currentMagAmmo--;
-            isChamberLoaded = true;
-            isChamberSpent = false;
-        }
+        isQuickRacking = true;
+        isFiringRoutine = true;
+        StartCoroutine(ReleaseSlideSequence());
         PlayRandomSound(slideLockSounds, 1f, 1.05f, 1.15f);
+    }
+
+    private IEnumerator ReleaseSlideSequence()
+    {
+        yield return ReturnSlideAndFeed(slideReturnSpeed, true);
+        isQuickRacking = false;
+        isFiringRoutine = false;
     }
 
     public void ToggleBulletTime()
@@ -388,7 +450,6 @@ public partial class TacticalGun
     private IEnumerator TacticalFiringCycle()
     {
         isFiringRoutine = true;
-        if (triggerResetCoroutine != null) StopCoroutine(triggerResetCoroutine);
 
         Quaternion cockedRot = GetCockedRotation(hammerCockedAngle);
         Quaternion uncockedRot = hammerBaseRotation;
@@ -467,7 +528,7 @@ public partial class TacticalGun
             {
                 tSlideBack += Time.deltaTime * slideBlowbackSpeed;
                 if (slide != null) slide.localPosition = Vector3.Lerp(slideStartPos, slideBackTarget, tSlideBack);
-                if (!casingEjected && tSlideBack >= ejectionSlideThreshold) { EjectCasing(); casingEjected = true; }
+                if (!casingEjected && tSlideBack >= ejectionSlideThreshold) { EjectChamberContents(); casingEjected = true; }
             }
             if (tHammerCock < 1f)
             {
@@ -477,49 +538,22 @@ public partial class TacticalGun
             yield return null;
         }
 
+        if (!casingEjected) EjectChamberContents();
         if (hammer != null) hammer.localRotation = cockedRot;
-        isHammerCocked = true; isChamberLoaded = false; isChamberSpent = false;
+        isHammerCocked = true;
 
-        if (currentMagAmmo > 0)
-        {
-            currentMagAmmo--;
-            isChamberLoaded = true;
-            triggerResetCoroutine = StartCoroutine(ResetTriggerRoutine(triggerResetDelay));
-
-            float tReturn = 0f;
-            Vector3 returnStartPos = slide != null ? slide.localPosition : slideBackTarget;
-            while (tReturn < 1f)
-            {
-                tReturn += Time.deltaTime * slideReturnSpeed;
-                if (slide != null) slide.localPosition = Vector3.Lerp(returnStartPos, slideBasePos, tReturn);
-                yield return null;
-            }
-            if (slide != null) slide.localPosition = slideBasePos;
-        }
-        else
+        if (isMagazineInserted && currentMagAmmo <= 0)
         {
             isSlideLocked = true;
             PlayRandomSound(slideLockSounds, 1f, 0.95f, 1.05f);
-            isFiringRoutine = false;
         }
+        else
+        {
+            yield return ReturnSlideAndFeed(slideReturnSpeed, true);
+        }
+        isFiringRoutine = false;
     }
 
-    private void EjectCasing()
-    {
-        if (casingPrefab == null || ejectionPoint == null) return;
-        GameObject casing = Instantiate(casingPrefab, ejectionPoint.position, ejectionPoint.rotation);
-        casing.transform.localScale = casingScale;
-        Rigidbody rb = casing.GetComponent<Rigidbody>();
-        if (rb == null) { rb = casing.AddComponent<Rigidbody>(); rb.mass = 0.005f; rb.collisionDetectionMode = CollisionDetectionMode.Continuous; }
-
-        Vector3 ejectDir = ejectionPoint.TransformDirection(ejectionDirection.normalized);
-        rb.AddForce(ejectDir * ejectionForce, ForceMode.Impulse);
-        Vector3 randomTorque = new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)).normalized * ejectionTorque;
-        rb.AddTorque(randomTorque, ForceMode.Impulse);
-        Destroy(casing, casingLifetime);
-    }
-
-    private IEnumerator ResetTriggerRoutine(float delay) { if (delay > 0f) yield return new WaitForSeconds(delay); isFiringRoutine = false; }
     private Vector3 GetAsymmetricRandomVector(Vector3 baseV, Vector3 minO, Vector3 maxO) { return new Vector3(baseV.x + Random.Range(minO.x, maxO.x), baseV.y + Random.Range(minO.y, maxO.y), baseV.z + Random.Range(minO.z, maxO.z)); }
     private Quaternion GetCockedRotation(float angle) { Vector3 axis = hammerLocalAxis == HammerAxis.LocalX ? Vector3.right : (hammerLocalAxis == HammerAxis.LocalY ? Vector3.up : Vector3.forward); return hammerBaseRotation * Quaternion.AngleAxis(angle, axis); }
     private void PlayRandomSound(AudioClip[] clips, float volume = 1f, float minPitch = 0.95f, float maxPitch = 1.05f) { if (clips == null || clips.Length == 0 || shootAudioSource == null) return; AudioClip clip = clips[Random.Range(0, clips.Length)]; if (clip == null) return; shootAudioSource.pitch = Random.Range(minPitch, maxPitch); shootAudioSource.PlayOneShot(clip, volume); }

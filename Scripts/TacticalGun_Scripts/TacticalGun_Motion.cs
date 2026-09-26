@@ -39,8 +39,7 @@ public partial class TacticalGun
         transform.localPosition = Vector3.Lerp(transform.localPosition, targetPos + currentRecoilPos + currentSwayPos, Time.deltaTime * currentMoveSpeed);
         transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.Euler(targetRot + currentRecoilRot + currentSwayRot), Time.deltaTime * currentMoveSpeed);
 
-        if (liveRoundMesh != null) liveRoundMesh.SetActive(isChamberLoaded && !isChamberSpent);
-        if (spentCasingMesh != null) spentCasingMesh.SetActive(isChamberLoaded && isChamberSpent);
+        UpdateAmmoVisuals();
 
         if (slide != null && !isFiringRoutine && !isQuickRacking)
         {
@@ -51,7 +50,7 @@ public partial class TacticalGun
             else if (isManualSlidePull)
             {
                 Vector3 targetSlidePos = Vector3.Lerp(slideBasePos, slideBasePos + slideRecoilOffset, manualSlideAmount);
-                slide.localPosition = Vector3.Lerp(slide.localPosition, targetSlidePos, Time.deltaTime * 35f);
+                slide.localPosition = targetSlidePos; // manual pull and ejection thresholds share the same position
             }
             else
             {
@@ -59,7 +58,7 @@ public partial class TacticalGun
             }
         }
 
-        if (!isFiringRoutine && hammer != null && !isManualSlidePull)
+        if (!isFiringRoutine && !isHammerDropping && hammer != null && !isManualSlidePull)
         {
             Quaternion targetHammerRot = isHammerCocked ? GetCockedRotation(hammerCockedAngle) : hammerBaseRotation;
             hammer.localRotation = Quaternion.Slerp(hammer.localRotation, targetHammerRot, Time.deltaTime * 25f);
