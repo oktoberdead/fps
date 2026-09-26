@@ -562,7 +562,12 @@ public partial class TacticalGun
         if (debugProgressiveRecoil)
             Debug.Log($"[TacticalGun] Shot heat {shotHeat:F2}, progressive factor {progressiveFactor:F2}, next heat {progressiveRecoilHeat:F2}; before ceilings pos {unclampedPos}, rot {unclampedRot}; after ceilings pos {targetRecoilPos}, rot {targetRecoilRot}", this);
 
-        if (fpsController != null) fpsController.AddCameraShake(isADS ? camShakeADS : camShakeHip);
+        if (fpsController != null)
+        {
+            fpsController.AddCameraShake(isADS ? camShakeADS : camShakeHip);
+            fpsController.AddCameraRecoil(isADS ? camRecoilPitchADS : camRecoilPitchHip,
+                Random.Range(-camRecoilYawJitter, camRecoilYawJitter));
+        }
 
         if (firePoint != null)
         {

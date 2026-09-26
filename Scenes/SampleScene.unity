@@ -3400,31 +3400,31 @@ MonoBehaviour:
   globalRecoilMultiplier: 1
   posRecoilMultiplier: 0.7
   rotRecoilMultiplier: 1
-  minPosRecoil: {x: -0.05, y: -0.07, z: -0.2}
-  maxPosRecoil: {x: 0.15, y: 0.15, z: 0.05}
-  minRotRecoil: {x: -35, y: -15, z: -50}
-  maxRotRecoil: {x: 20, y: 25, z: 15}
+  minPosRecoil: {x: -0.015, y: -0.008, z: -0.045}
+  maxPosRecoil: {x: 0.015, y: 0.025, z: 0.01}
+  minRotRecoil: {x: -22, y: -4, z: -4}
+  maxRotRecoil: {x: 4, y: 4, z: 4}
   progressiveRecoilMultiplier: 0.5
   progressiveRecoilCurve: 2
-  progressiveRecoilBuildPerShot: 1
-  progressiveRecoilDecayPerSecond: 0.45
+  progressiveRecoilBuildPerShot: 0.65
+  progressiveRecoilDecayPerSecond: 0.8
   debugProgressiveRecoil: 0
-  posKickHip: {x: 0.2, y: 0.15, z: -0.3}
-  posKickHipMin: {x: -0.1, y: 0.1, z: -0.7}
-  posKickHipMax: {x: 0.4, y: 0.5, z: 0.1}
-  posKickADS: {x: 0.12, y: 0.04, z: 0}
-  posKickADSMin: {x: 0.02, y: 0.02, z: -0.07}
-  posKickADSMax: {x: 0.19, y: 0.07, z: 0.07}
-  posSnappiness: 34
-  posReturnSpeed: 58.7
-  rotAngleHip: {x: -25, y: 40, z: -62.2}
-  rotAngleHipMin: {x: -50, y: 65, z: -89.9}
-  rotAngleHipMax: {x: 45, y: -30, z: -46.2}
-  rotAngleADS: {x: 0, y: 0, z: -25.6}
-  rotAngleADSMin: {x: -82.8, y: -52.5, z: -65}
-  rotAngleADSMax: {x: 82.8, y: 52.5, z: -15}
-  rotSnappiness: 66
-  rotReturnSpeed: 93.1
+  posKickHip: {x: 0, y: 0.008, z: -0.018}
+  posKickHipMin: {x: -0.002, y: -0.002, z: -0.004}
+  posKickHipMax: {x: 0.002, y: 0.002, z: 0.004}
+  posKickADS: {x: 0, y: 0.004, z: -0.01}
+  posKickADSMin: {x: -0.001, y: -0.001, z: -0.003}
+  posKickADSMax: {x: 0.001, y: 0.001, z: 0.002}
+  posSnappiness: 40
+  posReturnSpeed: 12
+  rotAngleHip: {x: -7.5, y: 0, z: 0.6}
+  rotAngleHipMin: {x: -1.5, y: -0.8, z: -0.8}
+  rotAngleHipMax: {x: 1.5, y: 0.8, z: 0.8}
+  rotAngleADS: {x: -4.5, y: 0, z: 0.3}
+  rotAngleADSMin: {x: -1, y: -0.35, z: -0.5}
+  rotAngleADSMax: {x: 1, y: 0.35, z: 0.5}
+  rotSnappiness: 48
+  rotReturnSpeed: 10
   mouseSwayIdle: 1
   mouseSwayWalk: 1.2
   mouseSwaySprint: 1.55
@@ -3540,8 +3540,11 @@ MonoBehaviour:
     posBase: {x: 0, y: 0, z: 0}
     posMin: {x: 0, y: 0, z: 0}
     posMax: {x: 0, y: 0, z: 0}
-  camShakeHip: 0.3
-  camShakeADS: 0.1
+  camShakeHip: 0.12
+  camShakeADS: 0.05
+  camRecoilPitchHip: 0.9
+  camRecoilPitchADS: 0.5
+  camRecoilYawJitter: 0.12
   maxMagAmmo: 999
   currentMagAmmo: 667
   isMagazineInserted: 1
@@ -3575,7 +3578,7 @@ MonoBehaviour:
   slideQuickRackSpeed: 10
   chamberingPullThreshold: 0.85
   manualLockPullThreshold: 0.92
-  slideAudioSource: {fileID: 1421585391}
+  slideAudioSource: {fileID: 1421585392}
   slideBackClips:
   - {fileID: 8300000, guid: d233242c464f537408dca00e49e86887, type: 3}
   slideForwardClips:
@@ -3583,9 +3586,9 @@ MonoBehaviour:
   slideOneShotTravelThreshold: 0.1
   liveRoundEjectClips: []
   spentCaseEjectClips: []
-  slideDragAudioSource: {fileID: 1421585391}
-  slideBackDragLoop: {fileID: 8300000, guid: d233242c464f537408dca00e49e86887, type: 3}
-  slideForwardDragLoop: {fileID: 8300000, guid: 4ed1b25d5a38e1f41bc96715c1319e9a, type: 3}
+  slideDragAudioSource: {fileID: 1421585393}
+  slideBackDragLoop: {fileID: 0}
+  slideForwardDragLoop: {fileID: 0}
   slideDragLoopVolume: 0.662
   slideDragMinPitch: 0.8
   slideDragMaxPitch: 1.25
@@ -6542,6 +6545,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1421585390}
   - component: {fileID: 1421585391}
+  - component: {fileID: 1421585392}
+  - component: {fileID: 1421585393}
   m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
@@ -6565,6 +6570,200 @@ Transform:
   m_Father: {fileID: 921290216}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!82 &1421585391
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421585389}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!82 &1421585392
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421585389}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!82 &1421585393
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -9427,6 +9626,10 @@ MonoBehaviour:
   sprintBobAmountY: 0.05
   shakeRotMultiplier: {x: 3, y: 2, z: 1}
   shakeDecay: 10
+  recoilFollowSpeed: 35
+  recoilReturnSpeed: 8
+  maxRecoilPitch: 4
+  maxRecoilYaw: 1.5
   controller: {fileID: 0}
 --- !u!143 &1961619864
 CharacterController:

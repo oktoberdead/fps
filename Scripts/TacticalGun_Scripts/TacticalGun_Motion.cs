@@ -9,10 +9,17 @@ public partial class TacticalGun
 
         progressiveRecoilHeat = Mathf.MoveTowards(progressiveRecoilHeat, 0f,
             Mathf.Max(0f, progressiveRecoilDecayPerSecond) * Time.deltaTime);
-        targetRecoilPos = Vector3.Lerp(targetRecoilPos, Vector3.zero, posReturnSpeed * Time.deltaTime);
-        currentRecoilPos = Vector3.Slerp(currentRecoilPos, targetRecoilPos, posSnappiness * Time.deltaTime);
-        targetRecoilRot = Vector3.Lerp(targetRecoilRot, Vector3.zero, rotReturnSpeed * Time.deltaTime);
-        currentRecoilRot = Vector3.Slerp(currentRecoilRot, targetRecoilRot, rotSnappiness * Time.deltaTime);
+        // Follow the shot BEFORE returning the target to rest, otherwise a high
+        // return speed can erase the entire impulse in this very frame. Exponential
+        // interpolation also keeps the response consistent across frame rates.
+        float posFollow = 1f - Mathf.Exp(-Mathf.Max(0f, posSnappiness) * Time.deltaTime);
+        float rotFollow = 1f - Mathf.Exp(-Mathf.Max(0f, rotSnappiness) * Time.deltaTime);
+        currentRecoilPos = Vector3.Lerp(currentRecoilPos, targetRecoilPos, posFollow);
+        currentRecoilRot = Vector3.Lerp(currentRecoilRot, targetRecoilRot, rotFollow);
+        float posReturn = 1f - Mathf.Exp(-Mathf.Max(0f, posReturnSpeed) * Time.deltaTime);
+        float rotReturn = 1f - Mathf.Exp(-Mathf.Max(0f, rotReturnSpeed) * Time.deltaTime);
+        targetRecoilPos = Vector3.Lerp(targetRecoilPos, Vector3.zero, posReturn);
+        targetRecoilRot = Vector3.Lerp(targetRecoilRot, Vector3.zero, rotReturn);
 
         CalculateSwayAndBob();
 

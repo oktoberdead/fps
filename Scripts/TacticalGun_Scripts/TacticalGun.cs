@@ -252,9 +252,13 @@ public partial class TacticalGun : MonoBehaviour
     public DirectionalBias biasMoveForward;
     public DirectionalBias biasMoveBackward;
 
-    [Header("17. Camera Shake")]
+    [Header("17. Camera Shake & Directed Recoil")]
     public float camShakeHip = 0.3f;
     public float camShakeADS = 0.1f;
+    [Tooltip("Small upward view kick in degrees; independent of random shake and weapon motion.")]
+    [Min(0f)] public float camRecoilPitchHip = 0f;
+    [Min(0f)] public float camRecoilPitchADS = 0f;
+    [Min(0f)] public float camRecoilYawJitter = 0f;
 
     [Header("18. M1911 SAO Mechanics")]
     public int maxMagAmmo = 7;

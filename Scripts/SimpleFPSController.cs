@@ -42,6 +42,12 @@ public class SimpleFPSController : MonoBehaviour
     public Vector3 shakeRotMultiplier = new Vector3(3f, 2f, 1f);
     public float shakeDecay = 10f;
 
+    [Header("6.1 Directed Camera Recoil")]
+    [Min(0f)] public float recoilFollowSpeed = 35f;
+    [Min(0f)] public float recoilReturnSpeed = 8f;
+    [Min(0f)] public float maxRecoilPitch = 4f;
+    [Min(0f)] public float maxRecoilYaw = 1.5f;
+
     [Header("Debug Info")]
     public CharacterController controller;
 
@@ -54,6 +60,8 @@ public class SimpleFPSController : MonoBehaviour
     private float defaultCameraY;
     private float bobTimer;
     private float currentTrauma = 0f;
+    private float recoilPitchTarget, recoilPitchCurrent;
+    private float recoilYawTarget, recoilYawCurrent;
 
     public Vector2 MovementInput { get; private set; }
     public float NormalizedSpeed { get; private set; }
@@ -126,12 +134,28 @@ public class SimpleFPSController : MonoBehaviour
             if (Mathf.Abs(cameraYaw) < 0.1f) cameraYaw = 0f;
         }
 
+        float recoilFollow = 1f - Mathf.Exp(-Mathf.Max(0f, recoilFollowSpeed) * Time.deltaTime);
+        float recoilReturn = 1f - Mathf.Exp(-Mathf.Max(0f, recoilReturnSpeed) * Time.deltaTime);
+        recoilPitchCurrent = Mathf.Lerp(recoilPitchCurrent, recoilPitchTarget, recoilFollow);
+        recoilYawCurrent = Mathf.Lerp(recoilYawCurrent, recoilYawTarget, recoilFollow);
+        recoilPitchTarget = Mathf.Lerp(recoilPitchTarget, 0f, recoilReturn);
+        recoilYawTarget = Mathf.Lerp(recoilYawTarget, 0f, recoilReturn);
+
         currentTrauma = Mathf.Lerp(currentTrauma, 0f, Time.deltaTime * shakeDecay);
         float shakePitch = (Mathf.PerlinNoise(Time.time * 20f, 0f) - 0.5f) * 2f * currentTrauma * shakeRotMultiplier.x;
         float shakeYaw = (Mathf.PerlinNoise(0f, Time.time * 20f) - 0.5f) * 2f * currentTrauma * shakeRotMultiplier.y;
         float shakeRoll = (Mathf.PerlinNoise(Time.time * 20f, Time.time * 20f) - 0.5f) * 2f * currentTrauma * shakeRotMultiplier.z;
 
-        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch + shakePitch, cameraYaw + shakeYaw, shakeRoll);
+        // Negative camera X pitches the view upwards. These offsets return on
+        // their own and never overwrite the player's mouse-controlled aim angle.
+        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch - recoilPitchCurrent + shakePitch,
+            cameraYaw + recoilYawCurrent + shakeYaw, shakeRoll);
+    }
+
+    public void AddCameraRecoil(float pitchDegrees, float yawDegrees)
+    {
+        recoilPitchTarget = Mathf.Clamp(recoilPitchTarget + Mathf.Max(0f, pitchDegrees), 0f, maxRecoilPitch);
+        recoilYawTarget = Mathf.Clamp(recoilYawTarget + yawDegrees, -maxRecoilYaw, maxRecoilYaw);
     }
 
     public void AddCameraShake(float traumaAmount)
