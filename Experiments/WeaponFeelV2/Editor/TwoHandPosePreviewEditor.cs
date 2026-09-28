@@ -95,11 +95,16 @@ public class TwoHandPosePreviewEditor : Editor
 
     private static bool IsSandbox(TwoHandPosePreview rig)
     {
-        return rig != null && rig.gameObject.scene.IsValid() &&
-               !PrefabUtility.IsPartOfPrefabAsset(rig.gameObject) &&
-               (rig.gameObject.scene.path.Replace('\\', '/').Contains("/Experiments/WeaponFeelV2/") ||
-                rig.gameObject.scene.path.Replace('\\', '/').Contains("/Experiments/exp/")) &&
-               rig.gameObject.scene.name.StartsWith("PunkM_RigSandbox", StringComparison.OrdinalIgnoreCase);
+        if (rig == null || !rig.gameObject.scene.IsValid() ||
+            PrefabUtility.IsPartOfPrefabAsset(rig.gameObject)) return false;
+        string path = rig.gameObject.scene.path.Replace('\\', '/');
+        bool generated = (path.Contains("/Experiments/WeaponFeelV2/") ||
+                          path.Contains("/Experiments/exp/")) &&
+                         rig.gameObject.scene.name.StartsWith("PunkM_RigSandbox", StringComparison.OrdinalIgnoreCase);
+        // A manually authored extreme ADS pose was saved outside Experiments.
+        // Whitelist only that exact scene, not arbitrary production scenes.
+        bool authoredFarADS = path.EndsWith("/farthestADS/farthestADS.unity", StringComparison.OrdinalIgnoreCase);
+        return generated || authoredFarADS;
     }
 
     private static bool HasTargets(TwoHandPosePreview rig)
