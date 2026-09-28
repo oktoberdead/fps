@@ -104,7 +104,10 @@ public class TwoHandPosePreviewEditor : Editor
         // A manually authored extreme ADS pose was saved outside Experiments.
         // Whitelist only that exact scene, not arbitrary production scenes.
         bool authoredFarADS = path.EndsWith("/farthestADS/farthestADS.unity", StringComparison.OrdinalIgnoreCase);
-        return generated || authoredFarADS;
+        // Reviewed near/far/hip IK samples are kept in the user's tests folder.
+        bool authoredTests = path.Contains("/tests/") &&
+                             rig.gameObject.scene.name.StartsWith("PunkM_RigSandbox_", StringComparison.OrdinalIgnoreCase);
+        return generated || authoredFarADS || authoredTests;
     }
 
     private static bool HasTargets(TwoHandPosePreview rig)
