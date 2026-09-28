@@ -98,15 +98,18 @@ public static class WeaponComboBuilder
         fps.sprintFOV = 88f;
         camera.fieldOfView = 88f;
 
-        // Align the copied assembled gun's PARENT to the far test stance first.
-        // ColtRoot and all its user-tuned mechanical settings remain intact.
+        // A single PARENT handle moves weapon + both hands. Keep ColtRoot itself
+        // untouched so the original TacticalGun mechanics still run normally.
         Transform weaponAnchor = gun.transform.parent;
+        Transform alignment = new GameObject("MOVE WEAPON + BOTH HANDS (pose alignment)").transform;
+        alignment.SetParent(camera.transform, false);
+        weaponAnchor.SetParent(alignment, false); // Identity parent preserves old world transform.
         weaponAnchor.localPosition = far.weaponPosition;
         weaponAnchor.localRotation = far.weaponRotation;
 
         // The calibration frame follows ColtRoot AFTER TacticalGun animates it;
         // moving it in Scene View adjusts BOTH hands relative to the real meshes.
-        Transform frame = new GameObject("Grip calibration - move this to fit assembled pistol").transform;
+        Transform frame = new GameObject("Hand contact offset (hands only; gun stays put)").transform;
         frame.SetParent(gun.transform, false);
         frame.SetPositionAndRotation(camera.transform.TransformPoint(frameOffset),
             camera.transform.rotation * frameRotation);
@@ -135,14 +138,21 @@ public static class WeaponComboBuilder
         combo.viewCamera = camera;
         combo.arms = rig;
         combo.weaponAnchor = weaponAnchor;
+        combo.poseAlignment = alignment;
         combo.gunGripFrame = frame;
         combo.chest = Bone("Chest");
         combo.hip = hip;
         combo.shortADS = near;
         combo.longADS = far;
         combo.adsDistance = 1f;
-        // Initial editor view = long ADS; no Play Mode required to see a pose.
-        SetPreview(combo, far);
+        combo.mirrorHands = true;
+        combo.rightElbowOffset = new Vector3(0f, -0.38f, 0f);
+        combo.leftElbowOffset = new Vector3(0f, 0.15f, 0f);
+        // Initial editor view = mirrored long ADS; no Play Mode needed.
+        WeaponHandCombo.Pose initialPose = combo.CurrentPose(1f, 1f);
+        weaponAnchor.localPosition = initialPose.weaponPosition;
+        weaponAnchor.localRotation = initialPose.weaponRotation;
+        SetPreview(combo, initialPose);
         EditorUtility.SetDirty(combo);
         EditorUtility.SetDirty(rig);
         EditorUtility.SetDirty(fps);
@@ -151,10 +161,10 @@ public static class WeaponComboBuilder
             Debug.LogError("[Weapon combo] Failed to save " + result);
         else
         {
-            Selection.activeGameObject = frame.gameObject;
+            Selection.activeGameObject = alignment.gameObject;
             Debug.Log("[Weapon combo] " + result + " — copied actual SampleScene ColtRoot intact. " +
-                "Grip calibration is approximate: move ONE frame to fit both hands to the assembled gun. " +
-                "Play: RMB ADS, 1 near ADS, 2 far ADS, release RMB for low ready; all existing weapon controls remain.");
+                "Selected parent moves gun + both hands; child hand contact offset adjusts hands ONLY. " +
+                "Grip is approximate. Play: RMB ADS, 1 near ADS, 2 far ADS; existing weapon controls remain.");
         }
     }
 
@@ -210,8 +220,8 @@ public static class WeaponComboBuilder
         Transform frame = combo.gunGripFrame;
         rig.right.target.SetPositionAndRotation(frame.TransformPoint(pose.rightGrip), frame.rotation * pose.rightRotation);
         rig.left.target.SetPositionAndRotation(frame.TransformPoint(pose.leftGrip), frame.rotation * pose.leftRotation);
-        rig.right.elbowHint.position = rig.transform.TransformPoint(pose.rightElbow);
-        rig.left.elbowHint.position = rig.transform.TransformPoint(pose.leftElbow);
+        rig.right.elbowHint.position = rig.transform.TransformPoint(pose.rightElbow + combo.rightElbowOffset);
+        rig.left.elbowHint.position = rig.transform.TransformPoint(pose.leftElbow + combo.leftElbowOffset);
         rig.right.fingerGrip = pose.rightFingerCurl;
         rig.left.fingerGrip = pose.leftFingerCurl;
         rig.right.thumbGrip = pose.rightThumbCurl;

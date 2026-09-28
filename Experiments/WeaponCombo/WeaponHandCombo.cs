@@ -1,8 +1,8 @@
 using System;
 using UnityEngine;
 
-// Prototype integration, confined to a COPY of SampleScene. TacticalGun still
-// owns firing, slide, ammunition, sway, bob and recoil; this script only makes
+// Prototype integration, confined to an isolated WeaponCombo scene. TacticalGun
+// still owns firing, slide, ammunition, sway, bob and recoil; this script makes
 // the PunkM arm rig follow that very same moving gun in LateUpdate.
 [DefaultExecutionOrder(500)]
 public class WeaponHandCombo : MonoBehaviour
@@ -64,6 +64,9 @@ public class WeaponHandCombo : MonoBehaviour
     public Camera viewCamera;
     public TwoHandPosePreview arms;
     public Transform weaponAnchor;
+    [Tooltip("Move this to reposition the assembled pistol AND both hands together. Never drag the child grip frame for this.")]
+    public Transform poseAlignment;
+    [Tooltip("Fine correction of hand contact relative to the pistol mesh ONLY.")]
     public Transform gunGripFrame;
     public Transform chest;
 
@@ -77,6 +80,11 @@ public class WeaponHandCombo : MonoBehaviour
     [Range(0f, 1f)] public float adsDistance = 1f;
     [Range(0f, 1f)] public float previewADS = 1f;
     [Range(0f, 1f)] public float previewDistance = 1f;
+    [Tooltip("Swap right/left pose goals and reflect them across the body. The gun mesh is not scaled or reversed.")]
+    public bool mirrorHands;
+    [Tooltip("Additional elbow bend relative to PunkM root, in metres; moves with the body, not camera.")]
+    public Vector3 rightElbowOffset;
+    public Vector3 leftElbowOffset;
     public KeyCode shortAdsKey = KeyCode.Alpha1;
     public KeyCode longAdsKey = KeyCode.Alpha2;
     [Tooltip("Follow camera freelook with only part of the upper torso; legs still face movement direction.")]
@@ -118,7 +126,7 @@ public class WeaponHandCombo : MonoBehaviour
         // Use TacticalGun's existing ADS binding, not a second weapon state machine.
         adsBlend = Mathf.Lerp(adsBlend, Input.GetKey(gun.adsKey) ? 1f : 0f, follow);
         distanceBlend = Mathf.Lerp(distanceBlend, adsDistance, follow);
-        Pose pose = Pose.Blend(hip, Pose.Blend(shortADS, longADS, distanceBlend), adsBlend);
+        Pose pose = CurrentPose(adsBlend, distanceBlend);
         if (chest != null && torsoFreelookShare > 0f)
         {
             float yaw = Mathf.DeltaAngle(0f, viewCamera.transform.localEulerAngles.y);
@@ -136,7 +144,7 @@ public class WeaponHandCombo : MonoBehaviour
     public void PreviewPoseInEditor()
     {
         if (Application.isPlaying || arms == null || gunGripFrame == null || weaponAnchor == null) return;
-        ApplyPose(Pose.Blend(hip, Pose.Blend(shortADS, longADS, previewDistance), previewADS));
+        ApplyPose(CurrentPose(previewADS, previewDistance));
     }
 
     private void ApplyPose(Pose pose)
@@ -149,8 +157,8 @@ public class WeaponHandCombo : MonoBehaviour
             gunGripFrame.TransformPoint(pose.rightGrip), gunGripFrame.rotation * pose.rightRotation);
         arms.left.target.SetPositionAndRotation(
             gunGripFrame.TransformPoint(pose.leftGrip), gunGripFrame.rotation * pose.leftRotation);
-        arms.right.elbowHint.position = arms.transform.TransformPoint(pose.rightElbow);
-        arms.left.elbowHint.position = arms.transform.TransformPoint(pose.leftElbow);
+        arms.right.elbowHint.position = arms.transform.TransformPoint(pose.rightElbow + rightElbowOffset);
+        arms.left.elbowHint.position = arms.transform.TransformPoint(pose.leftElbow + leftElbowOffset);
         SetGrip(arms.right, pose.rightFingerCurl, pose.rightThumbCurl, pose.rightThumbSpread,
             pose.rightFingerDegrees, pose.rightThumbDegrees, pose.rightSpreadDegrees,
             pose.rightInvertFinger, pose.rightInvertThumb);
@@ -159,6 +167,67 @@ public class WeaponHandCombo : MonoBehaviour
             pose.leftInvertFinger, pose.leftInvertThumb);
         // TacticalGun ran earlier in LateUpdate: arms now track its final recoil/sway.
         arms.PreviewPose();
+    }
+
+    // The current pose is also used by the Scene View elbow handles.
+    public Pose CurrentPose(float ads, float distance)
+    {
+        Pose pose = Pose.Blend(hip, Pose.Blend(shortADS, longADS, distance), ads);
+        return mirrorHands ? MirrorPose(pose) : pose;
+    }
+
+    // Reflect camera-space wrist positions/rotations across the sagittal plane
+    // and SWAP hand assignments. Never use a negative transform scale on PunkM
+    // or the real Colt: that would reverse meshes, normals and ejection side.
+    public static Pose MirrorPose(Pose original)
+    {
+        Pose p = original;
+        p.weaponPosition.x = -original.weaponPosition.x;
+        p.rightGrip = MirrorGrip(original.leftGrip, original.weaponPosition,
+            p.weaponPosition, original.weaponRotation);
+        p.leftGrip = MirrorGrip(original.rightGrip, original.weaponPosition,
+            p.weaponPosition, original.weaponRotation);
+        p.rightRotation = MirrorGripRotation(original.leftRotation, original.weaponRotation);
+        p.leftRotation = MirrorGripRotation(original.rightRotation, original.weaponRotation);
+        p.rightElbow = Reflect(original.leftElbow);
+        p.leftElbow = Reflect(original.rightElbow);
+        p.rightFingerCurl = original.leftFingerCurl;
+        p.leftFingerCurl = original.rightFingerCurl;
+        p.rightThumbCurl = original.leftThumbCurl;
+        p.leftThumbCurl = original.rightThumbCurl;
+        p.rightThumbSpread = -original.leftThumbSpread;
+        p.leftThumbSpread = -original.rightThumbSpread;
+        p.rightFingerDegrees = original.leftFingerDegrees;
+        p.leftFingerDegrees = original.rightFingerDegrees;
+        p.rightThumbDegrees = original.leftThumbDegrees;
+        p.leftThumbDegrees = original.rightThumbDegrees;
+        p.rightSpreadDegrees = original.leftSpreadDegrees;
+        p.leftSpreadDegrees = original.rightSpreadDegrees;
+        // Curl inversion describes each physical rig's bone winding, not the
+        // role of a hand in the stance. Keep it attached to the actual side.
+        p.rightInvertFinger = original.rightInvertFinger;
+        p.leftInvertFinger = original.leftInvertFinger;
+        p.rightInvertThumb = original.rightInvertThumb;
+        p.leftInvertThumb = original.leftInvertThumb;
+        return p;
+    }
+
+    private static Vector3 Reflect(Vector3 v) { return new Vector3(-v.x, v.y, v.z); }
+
+    private static Vector3 MirrorGrip(Vector3 local, Vector3 sourceAnchor,
+        Vector3 mirroredAnchor, Quaternion anchorRotation)
+    {
+        Vector3 cameraPosition = sourceAnchor + anchorRotation * local;
+        return Quaternion.Inverse(anchorRotation) * (Reflect(cameraPosition) - mirroredAnchor);
+    }
+
+    private static Quaternion MirrorGripRotation(Quaternion local, Quaternion anchorRotation)
+    {
+        Quaternion cameraRotation = anchorRotation * local;
+        // Reflection S R S for S = diag(-1, 1, 1), expressed as a quaternion.
+        Quaternion mirrored = new Quaternion(cameraRotation.x, -cameraRotation.y,
+            -cameraRotation.z, cameraRotation.w);
+        return Quaternion.Inverse(anchorRotation) * mirrored;
     }
 
     private static void SetGrip(TwoHandPosePreview.Arm arm, float curl, float thumb, float spread,

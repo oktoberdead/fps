@@ -459,7 +459,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 582999795}
+  - {fileID: 92000000000002}
   m_Father: {fileID: 1961619858}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &330585547
@@ -516,7 +516,7 @@ GameObject:
   m_Component:
   - component: {fileID: 339947352}
   m_Layer: 0
-  m_Name: Grip calibration - move this to fit assembled pistol
+  m_Name: Hand contact offset (hands only; gun stays put)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -959,12 +959,12 @@ Transform:
   m_GameObject: {fileID: 582999794}
   serializedVersion: 2
   m_LocalRotation: {x: 0.012075836, y: 0.7070037, z: 0.01207584, w: 0.7070037}
-  m_LocalPosition: {x: 0.063, y: -0.2234, z: 0.4342}
+  m_LocalPosition: {x: -0.001, y: -0.09109998, z: 0.4637}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 921290216}
-  m_Father: {fileID: 330585546}
+  m_Father: {fileID: 92000000000002}
   m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
 --- !u!1 &592700115
 GameObject:
@@ -10315,6 +10315,7 @@ MonoBehaviour:
   viewCamera: {fileID: 330585545}
   arms: {fileID: 140654561}
   weaponAnchor: {fileID: 582999795}
+  poseAlignment: {fileID: 92000000000002}
   gunGripFrame: {fileID: 339947352}
   chest: {fileID: 2529779877498156664}
   hip:
@@ -10396,6 +10397,9 @@ MonoBehaviour:
   adsDistance: 1
   previewADS: 1
   previewDistance: 1
+  mirrorHands: 1
+  rightElbowOffset: {x: 0, y: -0.38, z: 0}
+  leftElbowOffset: {x: 0, y: 0.15, z: 0}
   shortAdsKey: 49
   longAdsKey: 50
   torsoFreelookShare: 0.35
@@ -14418,6 +14422,38 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!1 &92000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 92000000000002}
+  m_Layer: 0
+  m_Name: MOVE WEAPON + BOTH HANDS (pose alignment)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &92000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 92000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.064, y: -0.13230002, z: -0.0295}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 582999795}
+  m_Father: {fileID: 330585546}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
