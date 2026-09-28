@@ -35,8 +35,11 @@ public static class WeaponComboRepair
         }
         if (combo.poseAlignment != null)
         {
+            StabilizeGunPreview(combo);
+            WeaponHandComboEditor.ApplyPreview(combo);
             Selection.activeGameObject = combo.poseAlignment.gameObject;
-            Debug.Log("[Weapon combo] Already upgraded; did not reset your alignment or elbow adjustments.");
+            Debug.Log("[Weapon combo] Kept alignment and elbow offsets. Neutralized ColtRoot's " +
+                "stale edit-only ADS/recoil preview; actual ADS and firing settings are unchanged.");
             return;
         }
 
@@ -71,6 +74,7 @@ public static class WeaponComboRepair
         combo.poseAlignment = alignment;
         Undo.RecordObject(combo.gunGripFrame.gameObject, "Clarify hand-only offset name");
         combo.gunGripFrame.name = "Hand contact offset (hands only; gun stays put)";
+        StabilizeGunPreview(combo);
         WeaponHandComboEditor.ApplyPreview(combo);
         EditorUtility.SetDirty(alignment);
         EditorSceneManager.MarkSceneDirty(scene);
@@ -78,5 +82,21 @@ public static class WeaponComboRepair
         Debug.Log("[Weapon combo] Upgraded in place: your assembled pistol/hand offset and all three poses " +
             "were kept. New selected parent moves gun + both hands; select Player for elbow controls. " +
             "Preview before saving the scene.", alignment);
+    }
+
+    private static void StabilizeGunPreview(WeaponHandCombo combo)
+    {
+        TacticalGun gun = combo.gun;
+        if (gun == null || (!gun.previewInADS && gun.currentPreviewMode == TacticalGun.PreviewMode.None &&
+                            Mathf.Approximately(gun.previewSlider, 0f))) return;
+        Undo.RecordObject(gun, "Stop stale Colt edit-only ADS preview");
+        Undo.RecordObject(gun.transform, "Return Colt to its configured idle base");
+        gun.previewInADS = false;
+        gun.currentPreviewMode = TacticalGun.PreviewMode.None;
+        gun.previewSlider = 0f;
+        gun.transform.localPosition = gun.baseIdlePos;
+        gun.transform.localRotation = Quaternion.Euler(gun.baseIdleRot);
+        EditorUtility.SetDirty(gun);
+        EditorSceneManager.MarkSceneDirty(gun.gameObject.scene);
     }
 }

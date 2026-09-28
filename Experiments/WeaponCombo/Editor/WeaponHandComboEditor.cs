@@ -11,8 +11,8 @@ public class WeaponHandComboEditor : Editor
 {
     private struct PreviewState
     {
-        public Vector3 position, alignmentPosition, rightElbow, leftElbow;
-        public Quaternion rotation, alignmentRotation;
+        public Vector3 position, alignmentPosition, anchorPosition, gunPosition, rightElbow, leftElbow;
+        public Quaternion rotation, alignmentRotation, anchorRotation, gunRotation;
         public float ads, distance;
         public bool mirrored;
         public PreviewState(WeaponHandCombo combo)
@@ -21,6 +21,10 @@ public class WeaponHandComboEditor : Editor
             rotation = combo.gunGripFrame.localRotation;
             alignmentPosition = combo.poseAlignment.localPosition;
             alignmentRotation = combo.poseAlignment.localRotation;
+            anchorPosition = combo.weaponAnchor.localPosition;
+            anchorRotation = combo.weaponAnchor.localRotation;
+            gunPosition = combo.gun.transform.localPosition;
+            gunRotation = combo.gun.transform.localRotation;
             rightElbow = combo.rightElbowOffset;
             leftElbow = combo.leftElbowOffset;
             ads = combo.previewADS;
@@ -32,8 +36,14 @@ public class WeaponHandComboEditor : Editor
             return position.Equals(other.position) && rotation.Equals(other.rotation) &&
                    alignmentPosition.Equals(other.alignmentPosition) &&
                    alignmentRotation.Equals(other.alignmentRotation) &&
+                   anchorPosition.Equals(other.anchorPosition) && anchorRotation.Equals(other.anchorRotation) &&
+                   gunPosition.Equals(other.gunPosition) && gunRotation.Equals(other.gunRotation) &&
                    rightElbow.Equals(other.rightElbow) && leftElbow.Equals(other.leftElbow) &&
-                   ads.Equals(other.ads) && distance.Equals(other.distance) && mirrored == other.mirrored;
+                   !StanceChanged(other);
+        }
+        public bool StanceChanged(PreviewState other)
+        {
+            return !ads.Equals(other.ads) || !distance.Equals(other.distance) || mirrored != other.mirrored;
         }
     }
 
@@ -45,7 +55,8 @@ public class WeaponHandComboEditor : Editor
 
     internal static bool IsIsolated(WeaponHandCombo combo)
     {
-        if (combo == null || combo.gunGripFrame == null || combo.poseAlignment == null ||
+        if (combo == null || combo.gun == null || combo.weaponAnchor == null ||
+            combo.gunGripFrame == null || combo.poseAlignment == null ||
             combo.arms == null || !combo.gameObject.scene.IsValid() ||
             PrefabUtility.IsPartOfPrefabAsset(combo.gameObject)) return false;
         string path = combo.gameObject.scene.path.Replace('\\', '/');
@@ -55,9 +66,9 @@ public class WeaponHandComboEditor : Editor
         return generated || authored;
     }
 
-    internal static void ApplyPreview(WeaponHandCombo combo)
+    internal static void ApplyPreview(WeaponHandCombo combo, bool changeStance = false)
     {
-        combo.PreviewPoseInEditor();
+        combo.PreviewPoseInEditor(changeStance);
         foreach (Transform bone in combo.arms.DrivenBones)
         {
             if (bone == null) continue;
@@ -81,9 +92,12 @@ public class WeaponHandComboEditor : Editor
             }
             PreviewState now = new PreviewState(combo);
             PreviewState before;
-            if (Previous.TryGetValue(combo, out before) && now.SameAs(before)) continue;
-            ApplyPreview(combo);
-            Previous[combo] = now;
+            bool hadPreview = Previous.TryGetValue(combo, out before);
+            if (hadPreview && now.SameAs(before)) continue;
+            // A parent/ColtRoot movement should re-solve the hands, NOT revert
+            // the authored weapon anchor. Only an explicit stance change moves it.
+            ApplyPreview(combo, hadPreview && now.StanceChanged(before));
+            Previous[combo] = new PreviewState(combo);
         }
     }
 
@@ -98,8 +112,8 @@ public class WeaponHandComboEditor : Editor
         }
         serializedObject.Update();
         EditorGUILayout.HelpBox("MOVE WEAPON + BOTH HANDS: select Pose alignment. " +
-            "Hand contact offset moves ONLY the hands relative to the gun. " +
-            "Elbow rings edit each arm separately.", MessageType.Info);
+            "Do not drag ColtRoot: TacticalGun owns its local Transform. " +
+            "Hand contact offset moves ONLY the hands. Elbow rings edit each arm separately.", MessageType.Info);
         if (GUILayout.Button("Select: move whole pistol + both hands"))
             Selection.activeGameObject = combo.poseAlignment.gameObject;
         if (GUILayout.Button("Select: fine-tune hands on pistol only"))

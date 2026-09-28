@@ -101,6 +101,15 @@ public static class WeaponComboBuilder
         // A single PARENT handle moves weapon + both hands. Keep ColtRoot itself
         // untouched so the original TacticalGun mechanics still run normally.
         Transform weaponAnchor = gun.transform.parent;
+        // TacticalGun.OnValidate writes its preview pose straight into ColtRoot.
+        // A copied SampleScene may save the gun at idle but its inspector in ADS
+        // preview, causing a large snap on the next edit. Reset PREVIEW ONLY in
+        // this copy; retain all authored ADS/idle positions and firing settings.
+        gun.previewInADS = false;
+        gun.currentPreviewMode = TacticalGun.PreviewMode.None;
+        gun.previewSlider = 0f;
+        gun.transform.localPosition = gun.baseIdlePos;
+        gun.transform.localRotation = Quaternion.Euler(gun.baseIdleRot);
         Transform alignment = new GameObject("MOVE WEAPON + BOTH HANDS (pose alignment)").transform;
         alignment.SetParent(camera.transform, false);
         weaponAnchor.SetParent(alignment, false); // Identity parent preserves old world transform.

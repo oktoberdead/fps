@@ -4067,17 +4067,17 @@ MonoBehaviour:
   slideDragLoopVolume: 0.662
   slideDragMinPitch: 0.8
   slideDragMaxPitch: 1.25
-  previewInADS: 1
+  previewInADS: 0
   previewHammerCocked: 0
   previewSlidePulled: 0
-  currentPreviewMode: 1
+  currentPreviewMode: 0
   applyPosX: 1
   applyPosY: 1
   applyPosZ: 1
   applyRotX: 0
   applyRotY: 0
   applyRotZ: 0
-  previewSlider: 0.04
+  previewSlider: 0
 --- !u!1 &942188071
 GameObject:
   m_ObjectHideFlags: 0

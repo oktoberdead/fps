@@ -139,20 +139,24 @@ public class WeaponHandCombo : MonoBehaviour
         ApplyPose(pose);
     }
 
-    // Invoked by the editor tool only in the isolated WeaponCombo scene. Lets a
-    // user move the grip calibration and see the arm deformation without Play.
-    public void PreviewPoseInEditor()
+    // In Edit Mode, moving the shared parent/hand contact must ONLY update the
+    // hands. Never snap an authored WeaponAnchor just because a handle moved.
+    // Changing a stance slider, on the other hand, selects an authored stance.
+    public void PreviewPoseInEditor(bool changeStance)
     {
         if (Application.isPlaying || arms == null || gunGripFrame == null || weaponAnchor == null) return;
-        ApplyPose(CurrentPose(previewADS, previewDistance));
+        ApplyPose(CurrentPose(previewADS, previewDistance), changeStance);
     }
 
-    private void ApplyPose(Pose pose)
+    private void ApplyPose(Pose pose, bool changeStance = true)
     {
-        // Move the entire assembled gun between authored camera-relative stances;
-        // don't overwrite ColtRoot, whose TacticalGun motion adds ADS, sway & recoil.
-        weaponAnchor.localPosition = pose.weaponPosition;
-        weaponAnchor.localRotation = pose.weaponRotation;
+        // TacticalGun owns ColtRoot's local motion. Stance only controls its
+        // parent WeaponAnchor; the user-adjustable shared alignment is untouched.
+        if (changeStance)
+        {
+            weaponAnchor.localPosition = pose.weaponPosition;
+            weaponAnchor.localRotation = pose.weaponRotation;
+        }
         arms.right.target.SetPositionAndRotation(
             gunGripFrame.TransformPoint(pose.rightGrip), gunGripFrame.rotation * pose.rightRotation);
         arms.left.target.SetPositionAndRotation(
