@@ -82,6 +82,8 @@ public class WeaponHandCombo : MonoBehaviour
     [Range(0f, 1f)] public float previewDistance = 1f;
     [Tooltip("Swap right/left pose goals and reflect them across the body. The gun mesh is not scaled or reversed.")]
     public bool mirrorHands;
+    [Tooltip("This scene's saved grip is the hip stance even though it was originally previewed as long ADS. Keeps a hand-calibrated hip scene unchanged on Play; source samples are not edited.")]
+    public bool useSavedLongGripAtHip;
     [Tooltip("Additional elbow bend relative to PunkM root, in metres; moves with the body, not camera.")]
     public Vector3 rightElbowOffset;
     public Vector3 leftElbowOffset;
@@ -93,6 +95,11 @@ public class WeaponHandCombo : MonoBehaviour
     private Quaternion chestRest;
     private float adsBlend;
     private float distanceBlend;
+    // Authored scene pose is the origin of every transition. Never treat the
+    // imported test scene's WeaponAnchor coordinates as a replacement for it.
+    private Vector3 authoredAnchorPosition;
+    private Quaternion authoredAnchorRotation;
+    private Pose authoredReferencePose;
     private bool initialized;
 
     private void Awake()
@@ -108,7 +115,13 @@ public class WeaponHandCombo : MonoBehaviour
         arms.controlMode = TwoHandPosePreview.JointMode.WristIK;
         arms.poseWeight = 1f;
         arms.livePreviewInEditMode = false;
-        distanceBlend = adsDistance;
+        // Scene View and the first frame of Play use the SAME stance and the
+        // SAME hand-calibrated WeaponAnchor (including manual local edits).
+        authoredAnchorPosition = weaponAnchor.localPosition;
+        authoredAnchorRotation = weaponAnchor.localRotation;
+        authoredReferencePose = CurrentPose(previewADS, previewDistance);
+        adsBlend = useSavedLongGripAtHip ? 0f : Mathf.Clamp01(previewADS);
+        distanceBlend = Mathf.Clamp01(previewDistance);
         initialized = true;
     }
 
@@ -136,27 +149,36 @@ public class WeaponHandCombo : MonoBehaviour
             chest.rotation = Quaternion.AngleAxis(partial, transform.up) * worldRest;
         }
         else if (chest != null) chest.localRotation = chestRest;
-        ApplyPose(pose);
+        // Offset relative to the *saved* anchor, not the test scene's anchor.
+        // That is essential when an authored hip calibration has local (0,0,0).
+        weaponAnchor.localPosition = authoredAnchorPosition +
+            pose.weaponPosition - authoredReferencePose.weaponPosition;
+        weaponAnchor.localRotation = authoredAnchorRotation *
+            Quaternion.Inverse(authoredReferencePose.weaponRotation) * pose.weaponRotation;
+        ApplyHands(pose);
     }
 
-    // In Edit Mode, moving the shared parent/hand contact must ONLY update the
-    // hands. Never snap an authored WeaponAnchor just because a handle moved.
-    // Changing a stance slider, on the other hand, selects an authored stance.
-    public void PreviewPoseInEditor(bool changeStance)
+    // Parent/contact movement only updates the hands. A deliberate inspector
+    // stance change advances the anchor BY the pose delta, retaining any manual
+    // calibration of the current scene across edits and into Play Mode.
+    public void PreviewPoseInEditor(Pose? previousPose = null)
     {
         if (Application.isPlaying || arms == null || gunGripFrame == null || weaponAnchor == null) return;
-        ApplyPose(CurrentPose(previewADS, previewDistance), changeStance);
+        Pose pose = CurrentPose(previewADS, previewDistance);
+        if (previousPose.HasValue)
+        {
+            Pose before = previousPose.Value;
+            weaponAnchor.localPosition += pose.weaponPosition - before.weaponPosition;
+            weaponAnchor.localRotation = weaponAnchor.localRotation *
+                Quaternion.Inverse(before.weaponRotation) * pose.weaponRotation;
+        }
+        ApplyHands(pose);
     }
 
-    private void ApplyPose(Pose pose, bool changeStance = true)
+    private void ApplyHands(Pose pose)
     {
-        // TacticalGun owns ColtRoot's local motion. Stance only controls its
-        // parent WeaponAnchor; the user-adjustable shared alignment is untouched.
-        if (changeStance)
-        {
-            weaponAnchor.localPosition = pose.weaponPosition;
-            weaponAnchor.localRotation = pose.weaponRotation;
-        }
+        // TacticalGun owns ColtRoot's local motion; solve targets from the gun's
+        // actual final transform without ever moving it from the arm solver.
         arms.right.target.SetPositionAndRotation(
             gunGripFrame.TransformPoint(pose.rightGrip), gunGripFrame.rotation * pose.rightRotation);
         arms.left.target.SetPositionAndRotation(
@@ -176,8 +198,17 @@ public class WeaponHandCombo : MonoBehaviour
     // The current pose is also used by the Scene View elbow handles.
     public Pose CurrentPose(float ads, float distance)
     {
-        Pose pose = Pose.Blend(hip, Pose.Blend(shortADS, longADS, distance), ads);
-        return mirrorHands ? MirrorPose(pose) : pose;
+        return PoseFor(ads, distance, mirrorHands, useSavedLongGripAtHip);
+    }
+
+    public Pose PoseFor(float ads, float distance, bool mirrored, bool savedHipFromLong)
+    {
+        // In a scene calibrated visually as hip using the old long-ADS preview,
+        // retain that grip as the hip baseline instead of switching to the
+        // imported (unfitted) hip sample when Play starts.
+        Pose hipBaseline = savedHipFromLong ? longADS : hip;
+        Pose pose = Pose.Blend(hipBaseline, Pose.Blend(shortADS, longADS, distance), ads);
+        return mirrored ? MirrorPose(pose) : pose;
     }
 
     // Reflect camera-space wrist positions/rotations across the sagittal plane

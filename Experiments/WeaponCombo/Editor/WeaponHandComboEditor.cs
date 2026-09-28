@@ -14,7 +14,7 @@ public class WeaponHandComboEditor : Editor
         public Vector3 position, alignmentPosition, anchorPosition, gunPosition, rightElbow, leftElbow;
         public Quaternion rotation, alignmentRotation, anchorRotation, gunRotation;
         public float ads, distance;
-        public bool mirrored;
+        public bool mirrored, savedHipFromLong;
         public PreviewState(WeaponHandCombo combo)
         {
             position = combo.gunGripFrame.localPosition;
@@ -30,6 +30,7 @@ public class WeaponHandComboEditor : Editor
             ads = combo.previewADS;
             distance = combo.previewDistance;
             mirrored = combo.mirrorHands;
+            savedHipFromLong = combo.useSavedLongGripAtHip;
         }
         public bool SameAs(PreviewState other)
         {
@@ -43,7 +44,8 @@ public class WeaponHandComboEditor : Editor
         }
         public bool StanceChanged(PreviewState other)
         {
-            return !ads.Equals(other.ads) || !distance.Equals(other.distance) || mirrored != other.mirrored;
+            return !ads.Equals(other.ads) || !distance.Equals(other.distance) ||
+                   mirrored != other.mirrored || savedHipFromLong != other.savedHipFromLong;
         }
     }
 
@@ -62,13 +64,16 @@ public class WeaponHandComboEditor : Editor
         string path = combo.gameObject.scene.path.Replace('\\', '/');
         bool generated = path.Contains("/Experiments/WeaponCombo/") &&
                          combo.gameObject.scene.name.StartsWith("WeaponCombo", StringComparison.OrdinalIgnoreCase);
-        bool authored = path.EndsWith("/tests/WeaponCombo.unity", StringComparison.OrdinalIgnoreCase);
+        // Unity's duplicate-scene names (WeaponCombo 1, WeaponCombo 2, ...)
+        // are also isolated copies and must keep live preview.
+        bool authored = path.Contains("/tests/") &&
+                        combo.gameObject.scene.name.StartsWith("WeaponCombo", StringComparison.OrdinalIgnoreCase);
         return generated || authored;
     }
 
-    internal static void ApplyPreview(WeaponHandCombo combo, bool changeStance = false)
+    internal static void ApplyPreview(WeaponHandCombo combo, WeaponHandCombo.Pose? previousPose = null)
     {
-        combo.PreviewPoseInEditor(changeStance);
+        combo.PreviewPoseInEditor(previousPose);
         foreach (Transform bone in combo.arms.DrivenBones)
         {
             if (bone == null) continue;
@@ -94,9 +99,12 @@ public class WeaponHandComboEditor : Editor
             PreviewState before;
             bool hadPreview = Previous.TryGetValue(combo, out before);
             if (hadPreview && now.SameAs(before)) continue;
-            // A parent/ColtRoot movement should re-solve the hands, NOT revert
-            // the authored weapon anchor. Only an explicit stance change moves it.
-            ApplyPreview(combo, hadPreview && now.StanceChanged(before));
+            // Re-solve on any change. A stance slider applies only the difference
+            // between poses: it cannot erase the user's adjusted WeaponAnchor.
+            WeaponHandCombo.Pose? previousPose = hadPreview && now.StanceChanged(before)
+                ? combo.PoseFor(before.ads, before.distance, before.mirrored, before.savedHipFromLong)
+                : (WeaponHandCombo.Pose?)null;
+            ApplyPreview(combo, previousPose);
             Previous[combo] = new PreviewState(combo);
         }
     }

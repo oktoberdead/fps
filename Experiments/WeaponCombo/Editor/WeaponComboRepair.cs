@@ -15,10 +15,11 @@ public static class WeaponComboRepair
         string path = scene.path.Replace('\\', '/');
         bool generated = path.Contains("/Experiments/WeaponCombo/") &&
                          scene.name.StartsWith("WeaponCombo", StringComparison.OrdinalIgnoreCase);
-        bool authored = path.EndsWith("/tests/WeaponCombo.unity", StringComparison.OrdinalIgnoreCase);
+        bool authored = path.Contains("/tests/") &&
+                        scene.name.StartsWith("WeaponCombo", StringComparison.OrdinalIgnoreCase);
         if (!scene.IsValid() || (!generated && !authored))
         {
-            EditorUtility.DisplayDialog("Weapon combo", "Open your tests/WeaponCombo.unity or an isolated " +
+            EditorUtility.DisplayDialog("Weapon combo", "Open tests/WeaponCombo*.unity or an isolated " +
                 "WeaponCombo scene first. SampleScene is never modified.", "OK");
             return;
         }
