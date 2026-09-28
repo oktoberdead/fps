@@ -10,7 +10,9 @@ using UnityEngine;
 [CustomEditor(typeof(TwoHandPosePreview))]
 public class TwoHandPosePreviewEditor : Editor
 {
-    private static readonly Dictionary<int, PoseState> Previous = new Dictionary<int, PoseState>();
+    // Use the object reference as the key: newer Unity versions obsolete GetInstanceID().
+    private static readonly Dictionary<TwoHandPosePreview, PoseState> Previous =
+        new Dictionary<TwoHandPosePreview, PoseState>();
     private static readonly string[] Labels = { "Right hand / pistol grip", "Left hand / support",
                                                  "Right elbow bend", "Left elbow bend" };
     private static readonly Color[] Colors = { new Color(0.2f, 0.85f, 1f), new Color(1f, 0.62f, 0.2f),
@@ -70,15 +72,15 @@ public class TwoHandPosePreviewEditor : Editor
         {
             if (!IsSandbox(rig) || !rig.enabled || !rig.livePreviewInEditMode || !rig.HasRestPose || !HasTargets(rig))
             {
-                if (rig != null) Previous.Remove(rig.GetInstanceID());
+                if (rig != null) Previous.Remove(rig);
                 continue;
             }
 
             PoseState current = new PoseState(rig);
             PoseState before;
-            if (Previous.TryGetValue(rig.GetInstanceID(), out before) && current.SameAs(before)) continue;
+            if (Previous.TryGetValue(rig, out before) && current.SameAs(before)) continue;
             ApplyPose(rig);
-            Previous[rig.GetInstanceID()] = current;
+            Previous[rig] = current;
         }
     }
 
