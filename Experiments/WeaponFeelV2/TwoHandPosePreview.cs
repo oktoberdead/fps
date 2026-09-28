@@ -22,6 +22,8 @@ public class TwoHandPosePreview : MonoBehaviour
     public Arm right = new Arm();
     public Arm left = new Arm();
     [Range(0f, 1f)] public float poseWeight = 1f;
+    [Tooltip("Update the IK preview as wrist/elbow targets move in the test scene. Does not edit the FBX asset.")]
+    public bool livePreviewInEditMode = true;
     [SerializeField, HideInInspector] private bool hasRestPose;
 
     public bool HasRestPose { get { return hasRestPose; } }
@@ -77,7 +79,7 @@ public class TwoHandPosePreview : MonoBehaviour
 
     private void LateUpdate()
     {
-        // Explicit button in Edit Mode: no permanent, per-frame FBX overrides.
+        // Editor previews are updated only when targets change by the editor tool.
         if (Application.isPlaying) PreviewPose();
     }
 
@@ -131,7 +133,7 @@ public class TwoHandPosePreview : MonoBehaviour
         arm.wrist.localRotation = Quaternion.Slerp(arm.wristRest, wristSolved, weight);
     }
 
-    private void OnDrawGizmosSelected()
+    private void OnDrawGizmos()
     {
         DrawTargets(right, new Color(0.4f, 0.8f, 1f));
         DrawTargets(left, new Color(1f, 0.7f, 0.3f));
