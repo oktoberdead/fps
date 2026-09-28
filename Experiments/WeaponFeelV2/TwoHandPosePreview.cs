@@ -28,21 +28,31 @@ public class TwoHandPosePreview : MonoBehaviour
 
         [HideInInspector] public float fingerGrip;
         [HideInInspector] public float thumbGrip;
+        [HideInInspector] public float thumbSplay; // -1..1, independent of thumb bend
         [HideInInspector] public float fingerCurlDegrees = 70f;
         [HideInInspector] public float thumbCurlDegrees = 35f;
+        [HideInInspector] public float thumbSplayDegrees = 40f;
         [HideInInspector] public bool invertFingerCurl;
-        [HideInInspector] public Transform thumb1, thumb2, index1, index2, middle1, middle2;
-        [HideInInspector] public Transform ring1, ring2, pinky1, pinky2;
+        [HideInInspector] public bool invertThumbCurl;
+        [HideInInspector] public Transform thumb1, thumb2, thumb3, index1, index2, index3;
+        [HideInInspector] public Transform middle1, middle2, middle3, ring1, ring2, ring3;
+        [HideInInspector] public Transform pinky1, pinky2, pinky3;
+        // Original rest values are kept for compatibility with already tuned scenes.
         [HideInInspector] public Quaternion thumbRest, indexRest, middleRest, ringRest, pinkyRest;
         [SerializeField, HideInInspector] private bool hasFingerRest;
+        [HideInInspector] public Quaternion thumbProxRest, indexProxRest, middleProxRest, ringProxRest, pinkyProxRest;
+        [SerializeField, HideInInspector] private bool hasProximalRest;
 
         public void BindFingerRest(bool recapture = false)
         {
             if (wrist == null) return;
-            if (!recapture && hasFingerRest && thumb1 != null && thumb2 != null &&
-                index1 != null && index2 != null && middle1 != null && middle2 != null &&
-                ring1 != null && ring2 != null && pinky1 != null && pinky2 != null) return;
-            hasFingerRest = false;
+            if (!recapture && hasFingerRest && hasProximalRest &&
+                thumb1 != null && thumb2 != null && thumb3 != null &&
+                index1 != null && index2 != null && index3 != null &&
+                middle1 != null && middle2 != null && middle3 != null &&
+                ring1 != null && ring2 != null && ring3 != null &&
+                pinky1 != null && pinky2 != null && pinky3 != null) return;
+
             string side = wrist.name.EndsWith(".R", StringComparison.Ordinal) ? ".R" : ".L";
             Transform[] bones = wrist.GetComponentsInChildren<Transform>(true);
             Transform Find(string name)
@@ -51,39 +61,66 @@ public class TwoHandPosePreview : MonoBehaviour
                     if (bone.name == name + side) return bone;
                 return null;
             }
-            thumb1 = Find("Thumb1"); thumb2 = Find("Thumb2");
-            index1 = Find("Index1"); index2 = Find("Index2");
-            middle1 = Find("Middle1"); middle2 = Find("Middle2");
-            ring1 = Find("Ring1"); ring2 = Find("Ring2");
-            pinky1 = Find("Pinky1"); pinky2 = Find("Pinky2");
-            if (thumb1 == null || thumb2 == null || index1 == null || index2 == null ||
-                middle1 == null || middle2 == null || ring1 == null || ring2 == null ||
-                pinky1 == null || pinky2 == null) return;
-            thumbRest = thumb1.localRotation;
-            indexRest = index1.localRotation;
-            middleRest = middle1.localRotation;
-            ringRest = ring1.localRotation;
-            pinkyRest = pinky1.localRotation;
+            thumb1 = Find("Thumb1"); thumb2 = Find("Thumb2"); thumb3 = Find("Thumb3");
+            index1 = Find("Index1"); index2 = Find("Index2"); index3 = Find("Index3");
+            middle1 = Find("Middle1"); middle2 = Find("Middle2"); middle3 = Find("Middle3");
+            ring1 = Find("Ring1"); ring2 = Find("Ring2"); ring3 = Find("Ring3");
+            pinky1 = Find("Pinky1"); pinky2 = Find("Pinky2"); pinky3 = Find("Pinky3");
+            if (thumb1 == null || thumb2 == null || thumb3 == null ||
+                index1 == null || index2 == null || index3 == null ||
+                middle1 == null || middle2 == null || middle3 == null ||
+                ring1 == null || ring2 == null || ring3 == null ||
+                pinky1 == null || pinky2 == null || pinky3 == null) return;
+
+            // Old scenes contain rest rotations for Finger1 but not Finger2.
+            // Do NOT recapture Finger1 from an already previewed (curled) scene.
+            if (recapture || !hasFingerRest)
+            {
+                thumbRest = thumb1.localRotation;
+                indexRest = index1.localRotation;
+                middleRest = middle1.localRotation;
+                ringRest = ring1.localRotation;
+                pinkyRest = pinky1.localRotation;
+            }
+            if (recapture || !hasProximalRest)
+            {
+                thumbProxRest = thumb2.localRotation;
+                indexProxRest = index2.localRotation;
+                middleProxRest = middle2.localRotation;
+                ringProxRest = ring2.localRotation;
+                pinkyProxRest = pinky2.localRotation;
+            }
             hasFingerRest = true;
-            // Old serialized scenes did not contain these new fields.
+            hasProximalRest = true;
             if (fingerCurlDegrees < 1f) fingerCurlDegrees = 70f;
             if (thumbCurlDegrees < 1f) thumbCurlDegrees = 35f;
+            if (thumbSplayDegrees < 1f) thumbSplayDegrees = 40f;
         }
 
         public void RestoreFingers()
         {
-            if (!hasFingerRest || thumb1 == null || index1 == null || middle1 == null ||
-                ring1 == null || pinky1 == null) return;
-            thumb1.localRotation = thumbRest;
-            index1.localRotation = indexRest;
-            middle1.localRotation = middleRest;
-            ring1.localRotation = ringRest;
-            pinky1.localRotation = pinkyRest;
+            if (hasFingerRest)
+            {
+                if (thumb1 != null) thumb1.localRotation = thumbRest;
+                if (index1 != null) index1.localRotation = indexRest;
+                if (middle1 != null) middle1.localRotation = middleRest;
+                if (ring1 != null) ring1.localRotation = ringRest;
+                if (pinky1 != null) pinky1.localRotation = pinkyRest;
+            }
+            if (hasProximalRest)
+            {
+                if (thumb2 != null) thumb2.localRotation = thumbProxRest;
+                if (index2 != null) index2.localRotation = indexProxRest;
+                if (middle2 != null) middle2.localRotation = middleProxRest;
+                if (ring2 != null) ring2.localRotation = ringProxRest;
+                if (pinky2 != null) pinky2.localRotation = pinkyProxRest;
+            }
         }
 
         public Transform[] FingerBones
         {
-            get { return new[] { thumb1, index1, middle1, ring1, pinky1 }; }
+            get { return new[] { thumb1, thumb2, index1, index2, middle1, middle2,
+                                 ring1, ring2, pinky1, pinky2 }; }
         }
     }
 
@@ -103,8 +140,10 @@ public class TwoHandPosePreview : MonoBehaviour
         {
             return new[] { right.upperArm, right.lowerArm, right.wrist,
                            left.upperArm, left.lowerArm, left.wrist,
-                           right.thumb1, right.index1, right.middle1, right.ring1, right.pinky1,
-                           left.thumb1, left.index1, left.middle1, left.ring1, left.pinky1 };
+                           right.thumb1, right.thumb2, right.index1, right.index2,
+                           right.middle1, right.middle2, right.ring1, right.ring2, right.pinky1, right.pinky2,
+                           left.thumb1, left.thumb2, left.index1, left.index2,
+                           left.middle1, left.middle2, left.ring1, left.ring2, left.pinky1, left.pinky2 };
         }
     }
 
@@ -255,41 +294,46 @@ public class TwoHandPosePreview : MonoBehaviour
 
     private static void CurlProximalFingers(Arm arm, float weight)
     {
-        if (arm.index1 == null || arm.index2 == null || arm.pinky1 == null || arm.pinky2 == null ||
-            arm.middle1 == null || arm.middle2 == null || arm.ring1 == null || arm.ring2 == null ||
-            arm.thumb1 == null || arm.thumb2 == null) return;
-        // PunkM's five Finger1 transforms ALL share one pivot at the palm.
-        // Their positions cannot define a palm plane, and Thumb1 -> Index1 is
-        // exactly zero. Use the SECOND finger joints to measure the hand spread.
-        Vector3 thumbToward = arm.index2.position - arm.thumb1.position;
+        if (arm.index2 == null || arm.index3 == null || arm.pinky2 == null || arm.pinky3 == null ||
+            arm.middle2 == null || arm.middle3 == null || arm.ring2 == null || arm.ring3 == null ||
+            arm.thumb1 == null || arm.thumb2 == null || arm.thumb3 == null) return;
+
+        // PunkM: Finger1 starts at the wrist and spans most of the PALM (~12 cm).
+        // Finger2 starts at the actual knuckle. Never bend Finger1 for a grip:
+        // doing so visibly folds the palm in half, rather than curling fingers.
+        Vector3 across = arm.index2.position - arm.pinky2.position;
+        Vector3 length = arm.middle2.position - arm.wrist.position;
+        Vector3 palmNormal = Vector3.Cross(across, length);
+        if (palmNormal.sqrMagnitude < 0.000001f)
+            palmNormal = arm.wrist.up;
+        palmNormal.Normalize();
+
         float amount = Mathf.Clamp01(arm.fingerGrip * weight);
         if (amount > 0f)
         {
-            Vector3 across = arm.index2.position - arm.pinky2.position;
-            Vector3 length = arm.middle2.position - arm.wrist.position;
-            Vector3 inward = Vector3.Cross(across, length);
-            if (inward.sqrMagnitude < 0.000001f)
-                inward = arm.wrist.up; // Degenerate geometry: still allow coarse manual grip.
-            inward.Normalize();
-            if (arm.invertFingerCurl) inward = -inward;
+            Vector3 inward = arm.invertFingerCurl ? -palmNormal : palmNormal;
             float bend = Mathf.Max(1f, arm.fingerCurlDegrees) * amount;
-            Bend(arm.index1, arm.index2, arm.indexRest, inward, bend);
-            Bend(arm.middle1, arm.middle2, arm.middleRest, inward, bend);
-            Bend(arm.ring1, arm.ring2, arm.ringRest, inward, bend);
-            Bend(arm.pinky1, arm.pinky2, arm.pinkyRest, inward, bend);
+            Bend(arm.index2, arm.index3, arm.indexProxRest, inward, bend);
+            Bend(arm.middle2, arm.middle3, arm.middleProxRest, inward, bend);
+            Bend(arm.ring2, arm.ring3, arm.ringProxRest, inward, bend);
+            Bend(arm.pinky2, arm.pinky3, arm.pinkyProxRest, inward, bend);
         }
 
+        // Thumb1 pivots at the palm: use it only to spread/oppose the thumb
+        // sideways IN the palm plane. Thumb2 bends independently across the palm.
+        float spread = Mathf.Clamp(arm.thumbSplay, -1f, 1f) * weight;
+        if (Mathf.Abs(spread) > 0f)
+        {
+            Vector3 localNormal = arm.thumb1.parent.InverseTransformDirection(palmNormal);
+            arm.thumb1.localRotation = Quaternion.AngleAxis(spread * Mathf.Max(1f, arm.thumbSplayDegrees),
+                localNormal) * arm.thumbRest;
+        }
         float thumbAmount = Mathf.Clamp01(arm.thumbGrip * weight);
         if (thumbAmount > 0f)
         {
-            Vector3 from = arm.thumb2.position - arm.thumb1.position;
-            Vector3 toward = thumbToward;
-            if (from.sqrMagnitude > 0.000001f && toward.sqrMagnitude > 0.000001f)
-            {
-                Quaternion fold = Quaternion.RotateTowards(Quaternion.identity,
-                    Quaternion.FromToRotation(from, toward), Mathf.Max(1f, arm.thumbCurlDegrees) * thumbAmount);
-                arm.thumb1.rotation = fold * arm.thumb1.rotation;
-            }
+            Vector3 inward = arm.invertThumbCurl ? -palmNormal : palmNormal;
+            Bend(arm.thumb2, arm.thumb3, arm.thumbProxRest, inward,
+                Mathf.Max(1f, arm.thumbCurlDegrees) * thumbAmount);
         }
     }
 

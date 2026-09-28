@@ -30,7 +30,8 @@ public class TwoHandPosePreviewEditor : Editor
         private Vector3 leftShoulder, leftForearm, leftWrist;
         private float weight, rightGrip, leftGrip, rightThumb, leftThumb;
         private float rightCurl, leftCurl, rightThumbCurl, leftThumbCurl;
-        private bool rightInvert, leftInvert;
+        private float rightSpread, leftSpread, rightSpreadAngle, leftSpreadAngle;
+        private bool rightInvert, leftInvert, rightThumbInvert, leftThumbInvert;
         private TwoHandPosePreview.JointMode mode;
 
         public PoseState(TwoHandPosePreview rig)
@@ -55,8 +56,14 @@ public class TwoHandPosePreviewEditor : Editor
             leftCurl = rig.left.fingerCurlDegrees;
             rightThumbCurl = rig.right.thumbCurlDegrees;
             leftThumbCurl = rig.left.thumbCurlDegrees;
+            rightSpread = rig.right.thumbSplay;
+            leftSpread = rig.left.thumbSplay;
+            rightSpreadAngle = rig.right.thumbSplayDegrees;
+            leftSpreadAngle = rig.left.thumbSplayDegrees;
             rightInvert = rig.right.invertFingerCurl;
             leftInvert = rig.left.invertFingerCurl;
+            rightThumbInvert = rig.right.invertThumbCurl;
+            leftThumbInvert = rig.left.invertThumbCurl;
             weight = rig.poseWeight;
             mode = rig.controlMode;
         }
@@ -73,7 +80,10 @@ public class TwoHandPosePreviewEditor : Editor
                    rightThumb.Equals(other.rightThumb) && leftThumb.Equals(other.leftThumb) &&
                    rightCurl.Equals(other.rightCurl) && leftCurl.Equals(other.leftCurl) &&
                    rightThumbCurl.Equals(other.rightThumbCurl) && leftThumbCurl.Equals(other.leftThumbCurl) &&
+                   rightSpread.Equals(other.rightSpread) && leftSpread.Equals(other.leftSpread) &&
+                   rightSpreadAngle.Equals(other.rightSpreadAngle) && leftSpreadAngle.Equals(other.leftSpreadAngle) &&
                    rightInvert == other.rightInvert && leftInvert == other.leftInvert &&
+                   rightThumbInvert == other.rightThumbInvert && leftThumbInvert == other.leftThumbInvert &&
                    weight.Equals(other.weight) && mode == other.mode;
         }
     }
@@ -191,7 +201,7 @@ public class TwoHandPosePreviewEditor : Editor
         }
 
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Coarse grip (first/proximal finger bones only)", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Coarse grip (knuckles, not palm bones)", EditorStyles.boldLabel);
         DrawGrip(rig, rig.right, "Right palm");
         DrawGrip(rig, rig.left, "Left palm");
 
@@ -236,23 +246,30 @@ public class TwoHandPosePreviewEditor : Editor
     private static void DrawGrip(TwoHandPosePreview rig, TwoHandPosePreview.Arm arm, string label)
     {
         EditorGUILayout.LabelField(label, EditorStyles.miniBoldLabel);
-        if (arm.index1 == null && (arm.fingerGrip > 0f || arm.thumbGrip > 0f))
-            EditorGUILayout.HelpBox("Proximal finger bones not found under the wrist. Disable Optimize Game Objects " +
-                "on the PunkM FBX and check Index1 / Thumb1 bone names.", MessageType.Warning);
+        if ((arm.index2 == null || arm.index3 == null || arm.thumb2 == null || arm.thumb3 == null) &&
+            (arm.fingerGrip > 0f || arm.thumbGrip > 0f || arm.thumbSplay != 0f))
+            EditorGUILayout.HelpBox("Finger2/Finger3 bones not found under the wrist. Disable Optimize Game " +
+                "Objects on the PunkM FBX and check Index2 / Thumb2 bone names.", MessageType.Warning);
         EditorGUI.BeginChangeCheck();
         float fingers = EditorGUILayout.Slider("Four fingers", arm.fingerGrip, 0f, 1f);
-        float thumb = EditorGUILayout.Slider("Thumb", arm.thumbGrip, 0f, 1f);
+        float thumb = EditorGUILayout.Slider("Thumb bend", arm.thumbGrip, 0f, 1f);
+        float spread = EditorGUILayout.Slider("Thumb spread / oppose", arm.thumbSplay, -1f, 1f);
         float fingerAngle = EditorGUILayout.Slider("Finger bend at 1.0", arm.fingerCurlDegrees, 10f, 110f);
         float thumbAngle = EditorGUILayout.Slider("Thumb bend at 1.0", arm.thumbCurlDegrees, 10f, 70f);
-        bool invert = EditorGUILayout.Toggle("Reverse bend", arm.invertFingerCurl);
+        float spreadAngle = EditorGUILayout.Slider("Thumb spread at 1.0", arm.thumbSplayDegrees, 10f, 70f);
+        bool invert = EditorGUILayout.Toggle("Reverse finger bend", arm.invertFingerCurl);
+        bool invertThumb = EditorGUILayout.Toggle("Reverse thumb bend", arm.invertThumbCurl);
         if (EditorGUI.EndChangeCheck())
         {
             Undo.RecordObject(rig, "Edit " + label + " grip");
             arm.fingerGrip = fingers;
             arm.thumbGrip = thumb;
+            arm.thumbSplay = spread;
             arm.fingerCurlDegrees = fingerAngle;
             arm.thumbCurlDegrees = thumbAngle;
+            arm.thumbSplayDegrees = spreadAngle;
             arm.invertFingerCurl = invert;
+            arm.invertThumbCurl = invertThumb;
             EditorUtility.SetDirty(rig);
             if (rig.livePreviewInEditMode) ApplyPose(rig);
         }
