@@ -84,6 +84,8 @@ public class WeaponHandCombo : MonoBehaviour
     public bool mirrorHands;
     [Tooltip("This scene's saved grip is the hip stance even though it was originally previewed as long ADS. Keeps a hand-calibrated hip scene unchanged on Play; source samples are not edited.")]
     public bool useSavedLongGripAtHip;
+    [Tooltip("Use ONE set of finger and thumb curls from longADS for hip, near ADS, far ADS and slide pull. Wrist goals and elbow bends still transition independently.")]
+    public bool shareFingerGrip;
     [Tooltip("Additional elbow bend relative to PunkM root, in metres; moves with the body, not camera.")]
     public Vector3 rightElbowOffset;
     public Vector3 leftElbowOffset;
@@ -165,12 +167,16 @@ public class WeaponHandCombo : MonoBehaviour
             gunGripFrame.TransformPoint(pose.leftGrip), gunGripFrame.rotation * pose.leftRotation);
         arms.right.elbowHint.position = arms.transform.TransformPoint(pose.rightElbow + rightElbowOffset);
         arms.left.elbowHint.position = arms.transform.TransformPoint(pose.leftElbow + leftElbowOffset);
-        SetGrip(arms.right, pose.rightFingerCurl, pose.rightThumbCurl, pose.rightThumbSpread,
-            pose.rightFingerDegrees, pose.rightThumbDegrees, pose.rightSpreadDegrees,
-            pose.rightInvertFinger, pose.rightInvertThumb);
-        SetGrip(arms.left, pose.leftFingerCurl, pose.leftThumbCurl, pose.leftThumbSpread,
-            pose.leftFingerDegrees, pose.leftThumbDegrees, pose.leftSpreadDegrees,
-            pose.leftInvertFinger, pose.leftInvertThumb);
+        // Fingers wrap the SAME pistol throughout hip/ADS/slide pull. Reusing a
+        // single grip prevents the thumb from changing curl at each transition.
+        // The authored pose samples remain intact for opting out later.
+        Pose grip = shareFingerGrip ? (mirrorHands ? MirrorPose(longADS) : longADS) : pose;
+        SetGrip(arms.right, grip.rightFingerCurl, grip.rightThumbCurl, grip.rightThumbSpread,
+            grip.rightFingerDegrees, grip.rightThumbDegrees, grip.rightSpreadDegrees,
+            grip.rightInvertFinger, grip.rightInvertThumb);
+        SetGrip(arms.left, grip.leftFingerCurl, grip.leftThumbCurl, grip.leftThumbSpread,
+            grip.leftFingerDegrees, grip.leftThumbDegrees, grip.leftSpreadDegrees,
+            grip.leftInvertFinger, grip.leftInvertThumb);
         // TacticalGun ran earlier in LateUpdate: arms now track its final recoil/sway.
         arms.PreviewPose();
     }

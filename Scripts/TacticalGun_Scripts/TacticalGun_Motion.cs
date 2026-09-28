@@ -110,9 +110,23 @@ public partial class TacticalGun
         float mSwayPosY = EvalSway(-mouseY, mPosAmt.y, mPosBase.y, mPosMin.y, mPosMax.y);
         float mSwayPosZ = EvalSway(-mouseX, mPosAmt.z, mPosBase.z, mPosMin.z, mPosMax.z);
         float mvSwayPosX = EvalSway(-moveX, mvPosAmt.x, mvPosBase.x, mvPosMin.x, mvPosMax.x);
-        float mvSwayPosY = EvalSway(-Mathf.Abs(moveX + moveY), mvPosAmt.y, mvPosBase.y, mvPosMin.y, mvPosMax.y);
+        float moveLoad = useCameraSpaceMoveSway && isADS ? -Mathf.Clamp01(new Vector2(moveX, moveY).magnitude) : -Mathf.Abs(moveX + moveY);
+        float mvSwayPosY = EvalSway(moveLoad, mvPosAmt.y, mvPosBase.y, mvPosMin.y, mvPosMax.y);
         float mvSwayPosZ = EvalSway(-moveY, mvPosAmt.z, mvPosBase.z, mvPosMin.z, mvPosMax.z);
+        // Leave the legacy mapping completely unchanged for SampleScene. The
+        // old code ignored mvSwayPosY and remapped move-Z to local X AND Y.
         Vector3 targetPosSway = new Vector3((mvSwayPosZ * moveMult), (mSwayPosY * mouseMult) + (mvSwayPosZ * moveMult), (mSwayPosX * mouseMult) + (mvSwayPosX * moveMult));
+        if (useCameraSpaceMoveSway && isADS && fpsController != null && fpsController.playerCamera != null && transform.parent != null)
+        {
+            // Opt-in WeaponCombo: keep the already tuned mouse sway; only fix
+            // movement sway. Camera axes are intuitive even with the gun's
+            // 90-degree WeaponAnchor rotation: X sideways, Y vertical, Z depth.
+            // -mvSwayPosZ preserves the existing forward/backward W/S sign.
+            Vector3 cameraMove = new Vector3(mvSwayPosX, mvSwayPosY, -mvSwayPosZ) * moveMult;
+            Vector3 localMove = transform.parent.InverseTransformDirection(
+                fpsController.playerCamera.transform.TransformDirection(cameraMove));
+            targetPosSway = new Vector3(0f, mSwayPosY * mouseMult, mSwayPosX * mouseMult) + localMove;
+        }
 
         float mSwayRotX = EvalSway(-mouseY, mRotAmt.x, mRotBase.x, mRotMin.x, mRotMax.x);
         float mSwayRotY = EvalSway(mouseX, mRotAmt.y, mRotBase.y, mRotMin.y, mRotMax.y);

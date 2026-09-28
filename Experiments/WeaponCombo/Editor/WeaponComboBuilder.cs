@@ -16,9 +16,15 @@ public static class WeaponComboBuilder
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
         string modelPath = FindAsset("/Models/PunkM.fbx");
         string samplePath = FindAsset("/Scenes/SampleScene.unity");
-        string farPath = FindAsset("/tests/PunkM_RigSandbox_LongADS.unity");
-        string shortPath = FindAsset("/tests/PunkM_RigSandbox_ShortADS.unity");
-        string hipPath = FindAsset("/tests/PunkM_RigSandbox_Hip_Draft.unity");
+        // Prefer the user's CURRENT saved test poses in Experiments. The old
+        // root tests/ path was removed and may still exist in stale local copies.
+        string poseFolder = "/Experiments/WeaponFeelV2/tests/";
+        string farPath = FindAsset(poseFolder + "PunkM_RigSandbox_LongADS.unity") ??
+                         FindAsset("/tests/PunkM_RigSandbox_LongADS.unity");
+        string shortPath = FindAsset(poseFolder + "PunkM_RigSandbox_ShortADS.unity") ??
+                           FindAsset("/tests/PunkM_RigSandbox_ShortADS.unity");
+        string hipPath = FindAsset(poseFolder + "PunkM_RigSandbox_Hip_Draft.unity") ??
+                         FindAsset("/tests/PunkM_RigSandbox_Hip_Draft.unity");
         if (modelPath == null || samplePath == null || farPath == null || shortPath == null || hipPath == null)
         {
             EditorUtility.DisplayDialog("Weapon combo", "Missing PunkM FBX, updated SampleScene or a saved tests pose. " +
@@ -155,6 +161,7 @@ public static class WeaponComboBuilder
         combo.longADS = far;
         combo.adsDistance = 1f;
         combo.mirrorHands = true;
+        combo.shareFingerGrip = true;
         combo.rightElbowOffset = new Vector3(0f, -0.38f, 0f);
         combo.leftElbowOffset = new Vector3(0f, 0.15f, 0f);
         // Initial editor view = mirrored long ADS; no Play Mode needed.

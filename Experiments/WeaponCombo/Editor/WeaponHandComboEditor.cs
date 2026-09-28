@@ -134,11 +134,40 @@ public class WeaponHandComboEditor : Editor
             new GUIContent("Right elbow offset (body metres)"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("leftElbowOffset"),
             new GUIContent("Left elbow offset (body metres)"));
+        EditorGUILayout.Space();
+        SerializedProperty shared = serializedObject.FindProperty("shareFingerGrip");
+        EditorGUILayout.PropertyField(shared, new GUIContent("One finger grip for every stance"));
+        if (shared.boolValue)
+        {
+            EditorGUILayout.HelpBox("Adjust each hand ONCE. Hip, both ADS distances, slide pull " +
+                "and sway keep this grip; wrists and elbows still use their pose goals.", MessageType.Info);
+            SerializedProperty source = serializedObject.FindProperty("longADS");
+            bool flipped = serializedObject.FindProperty("mirrorHands").boolValue;
+            GripField(source, flipped ? "leftFingerCurl" : "rightFingerCurl", "RIGHT hand / finger curl");
+            GripField(source, flipped ? "leftThumbCurl" : "rightThumbCurl", "RIGHT hand / thumb curl");
+            GripField(source, flipped ? "leftThumbSpread" : "rightThumbSpread", "RIGHT hand / thumb spread", true, flipped);
+            GripField(source, flipped ? "rightFingerCurl" : "leftFingerCurl", "LEFT hand / finger curl");
+            GripField(source, flipped ? "rightThumbCurl" : "leftThumbCurl", "LEFT hand / thumb curl");
+            GripField(source, flipped ? "rightThumbSpread" : "leftThumbSpread", "LEFT hand / thumb spread", true, flipped);
+        }
         showAdvanced = EditorGUILayout.Foldout(showAdvanced, "Advanced: samples, references and gameplay controls");
         if (showAdvanced)
             DrawPropertiesExcluding(serializedObject, "m_Script", "mirrorHands", "previewADS", "previewDistance",
-                "rightElbowOffset", "leftElbowOffset");
-        serializedObject.ApplyModifiedProperties();
+                "rightElbowOffset", "leftElbowOffset", "shareFingerGrip");
+        if (serializedObject.ApplyModifiedProperties() && !Application.isPlaying)
+            ApplyPreview(combo);
+    }
+
+    private static void GripField(SerializedProperty pose, string sourceField, string label,
+        bool isSpread = false, bool invertDisplay = false)
+    {
+        SerializedProperty value = pose.FindPropertyRelative(sourceField);
+        // Mirror swaps source hands and reverses thumb spread. Show the value
+        // for the actual RIGHT/LEFT hand rather than the source pose's sign.
+        float shown = invertDisplay ? -value.floatValue : value.floatValue;
+        EditorGUI.BeginChangeCheck();
+        shown = EditorGUILayout.Slider(label, shown, isSpread ? -1f : 0f, 1f);
+        if (EditorGUI.EndChangeCheck()) value.floatValue = invertDisplay ? -shown : shown;
     }
 
     private void OnSceneGUI()

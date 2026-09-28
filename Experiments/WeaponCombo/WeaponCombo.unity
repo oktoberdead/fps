@@ -3940,6 +3940,7 @@ MonoBehaviour:
   adsMoveSwayPosBase: {x: 0, y: 0, z: 0}
   adsMoveSwayPosMin: {x: -0.3, y: -0.01, z: -0.1}
   adsMoveSwayPosMax: {x: 0.3, y: 0.01, z: 0.1}
+  useCameraSpaceMoveSway: 1
   adsMoveSwayRotAmount: {x: -6, y: -29, z: 40}
   adsMoveSwayRotBase: {x: 0, y: 0, z: 0}
   adsMoveSwayRotMin: {x: -6, y: -29, z: -40}
@@ -10399,6 +10400,7 @@ MonoBehaviour:
   previewDistance: 1
   mirrorHands: 1
   useSavedLongGripAtHip: 0
+  shareFingerGrip: 1
   rightElbowOffset: {x: 0, y: -0.38, z: 0}
   leftElbowOffset: {x: 0, y: 0.15, z: 0}
   shortAdsKey: 49

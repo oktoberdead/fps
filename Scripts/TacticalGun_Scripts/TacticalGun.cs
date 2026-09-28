@@ -166,6 +166,8 @@ public partial class TacticalGun : MonoBehaviour
     public Vector3 adsMoveSwayPosBase = Vector3.zero;
     public Vector3 adsMoveSwayPosMin = new Vector3(-0.05f, 0f, -0.02f);
     public Vector3 adsMoveSwayPosMax = new Vector3(0.02f, 0f, 0.02f);
+    [Tooltip("WeaponCombo only: ADS/walk movement sway position uses camera-space X=side, Y=height, Z=depth. Legacy scenes keep their original axes.")]
+    public bool useCameraSpaceMoveSway;
     public Vector3 adsMoveSwayRotAmount = new Vector3(0.1f, 2f, 2f);
     public Vector3 adsMoveSwayRotBase = Vector3.zero;
     public Vector3 adsMoveSwayRotMin = new Vector3(-0.5f, -2f, -3f);
