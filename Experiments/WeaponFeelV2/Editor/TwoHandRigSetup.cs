@@ -5,14 +5,15 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Only installs editable target objects in a generated rig sandbox scene.
+// Only installs editable target objects in a saved rig sandbox scene.
 public static class TwoHandRigSetup
 {
     [MenuItem("Tools/Weapon Feel V2/Add two-hand pose to open sandbox")]
     public static void SetupOpenSandbox()
     {
         Scene scene = SceneManager.GetActiveScene();
-        if (!scene.IsValid() || !scene.path.Replace('\\', '/').Contains("/Experiments/WeaponFeelV2/") ||
+        if (!scene.IsValid() || !(scene.path.Replace('\\', '/').Contains("/Experiments/WeaponFeelV2/") ||
+             scene.path.Replace('\\', '/').Contains("/Experiments/exp/")) ||
             !scene.name.StartsWith("PunkM_RigSandbox", StringComparison.OrdinalIgnoreCase))
         {
             EditorUtility.DisplayDialog("Weapon Feel V2",

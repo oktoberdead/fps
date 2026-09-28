@@ -5,7 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Unity calls the editor tick even when a wrist target is selected instead of
-// the rig. Only changed targets in generated sandbox scenes trigger a new solve.
+// the rig. Only changed targets in saved sandbox scenes trigger a new solve.
 [InitializeOnLoad]
 [CustomEditor(typeof(TwoHandPosePreview))]
 public class TwoHandPosePreviewEditor : Editor
@@ -55,7 +55,8 @@ public class TwoHandPosePreviewEditor : Editor
     {
         return rig != null && rig.gameObject.scene.IsValid() &&
                !PrefabUtility.IsPartOfPrefabAsset(rig.gameObject) &&
-               rig.gameObject.scene.path.Replace('\\', '/').Contains("/Experiments/WeaponFeelV2/") &&
+               (rig.gameObject.scene.path.Replace('\\', '/').Contains("/Experiments/WeaponFeelV2/") ||
+                rig.gameObject.scene.path.Replace('\\', '/').Contains("/Experiments/exp/")) &&
                rig.gameObject.scene.name.StartsWith("PunkM_RigSandbox", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -107,7 +108,7 @@ public class TwoHandPosePreviewEditor : Editor
 
         if (!IsSandbox(rig))
         {
-            EditorGUILayout.HelpBox("Pose controls work only in a generated PunkM_RigSandbox scene, " +
+            EditorGUILayout.HelpBox("Pose controls work only in a saved PunkM_RigSandbox scene, " +
                 "never on the FBX asset or SampleScene.", MessageType.Warning);
             return;
         }
