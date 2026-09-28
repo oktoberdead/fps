@@ -71,9 +71,9 @@ public class WeaponHandComboEditor : Editor
         return generated || authored;
     }
 
-    internal static void ApplyPreview(WeaponHandCombo combo, WeaponHandCombo.Pose? previousPose = null)
+    internal static void ApplyPreview(WeaponHandCombo combo)
     {
-        combo.PreviewPoseInEditor(previousPose);
+        combo.PreviewPoseInEditor();
         foreach (Transform bone in combo.arms.DrivenBones)
         {
             if (bone == null) continue;
@@ -99,12 +99,9 @@ public class WeaponHandComboEditor : Editor
             PreviewState before;
             bool hadPreview = Previous.TryGetValue(combo, out before);
             if (hadPreview && now.SameAs(before)) continue;
-            // Re-solve on any change. A stance slider applies only the difference
-            // between poses: it cannot erase the user's adjusted WeaponAnchor.
-            WeaponHandCombo.Pose? previousPose = hadPreview && now.StanceChanged(before)
-                ? combo.PoseFor(before.ads, before.distance, before.mirrored, before.savedHipFromLong)
-                : (WeaponHandCombo.Pose?)null;
-            ApplyPreview(combo, previousPose);
+            // Scene handles and sliders only solve the hands. Never write a
+            // second stance transform on top of TacticalGun's ColtRoot motion.
+            ApplyPreview(combo);
             Previous[combo] = new PreviewState(combo);
         }
     }

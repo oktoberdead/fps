@@ -95,11 +95,6 @@ public class WeaponHandCombo : MonoBehaviour
     private Quaternion chestRest;
     private float adsBlend;
     private float distanceBlend;
-    // Authored scene pose is the origin of every transition. Never treat the
-    // imported test scene's WeaponAnchor coordinates as a replacement for it.
-    private Vector3 authoredAnchorPosition;
-    private Quaternion authoredAnchorRotation;
-    private Pose authoredReferencePose;
     private bool initialized;
 
     private void Awake()
@@ -115,11 +110,8 @@ public class WeaponHandCombo : MonoBehaviour
         arms.controlMode = TwoHandPosePreview.JointMode.WristIK;
         arms.poseWeight = 1f;
         arms.livePreviewInEditMode = false;
-        // Scene View and the first frame of Play use the SAME stance and the
-        // SAME hand-calibrated WeaponAnchor (including manual local edits).
-        authoredAnchorPosition = weaponAnchor.localPosition;
-        authoredAnchorRotation = weaponAnchor.localRotation;
-        authoredReferencePose = CurrentPose(previewADS, previewDistance);
+        // Start the hands in the saved preview pose. The gun's ONLY stance
+        // motion comes from TacticalGun, not from this arm solver.
         adsBlend = useSavedLongGripAtHip ? 0f : Mathf.Clamp01(previewADS);
         distanceBlend = Mathf.Clamp01(previewDistance);
         initialized = true;
@@ -149,30 +141,18 @@ public class WeaponHandCombo : MonoBehaviour
             chest.rotation = Quaternion.AngleAxis(partial, transform.up) * worldRest;
         }
         else if (chest != null) chest.localRotation = chestRest;
-        // Offset relative to the *saved* anchor, not the test scene's anchor.
-        // That is essential when an authored hip calibration has local (0,0,0).
-        weaponAnchor.localPosition = authoredAnchorPosition +
-            pose.weaponPosition - authoredReferencePose.weaponPosition;
-        weaponAnchor.localRotation = authoredAnchorRotation *
-            Quaternion.Inverse(authoredReferencePose.weaponRotation) * pose.weaponRotation;
+        // NEVER write weaponAnchor here. It is the artist's static calibration;
+        // TacticalGun alone animates its child ColtRoot (idle/ADS/sway/recoil).
+        // Two writers for the gun caused a massive unexpected hip/ADS jump.
         ApplyHands(pose);
     }
 
-    // Parent/contact movement only updates the hands. A deliberate inspector
-    // stance change advances the anchor BY the pose delta, retaining any manual
-    // calibration of the current scene across edits and into Play Mode.
-    public void PreviewPoseInEditor(Pose? previousPose = null)
+    // Preview changes only the hands, even when ADS/reach sliders move. The
+    // WeaponAnchor always retains its saved calibration in Edit AND Play Mode.
+    public void PreviewPoseInEditor()
     {
         if (Application.isPlaying || arms == null || gunGripFrame == null || weaponAnchor == null) return;
-        Pose pose = CurrentPose(previewADS, previewDistance);
-        if (previousPose.HasValue)
-        {
-            Pose before = previousPose.Value;
-            weaponAnchor.localPosition += pose.weaponPosition - before.weaponPosition;
-            weaponAnchor.localRotation = weaponAnchor.localRotation *
-                Quaternion.Inverse(before.weaponRotation) * pose.weaponRotation;
-        }
-        ApplyHands(pose);
+        ApplyHands(CurrentPose(previewADS, previewDistance));
     }
 
     private void ApplyHands(Pose pose)
