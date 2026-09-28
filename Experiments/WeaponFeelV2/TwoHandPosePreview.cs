@@ -39,8 +39,9 @@ public class TwoHandPosePreview : MonoBehaviour
         public void BindFingerRest(bool recapture = false)
         {
             if (wrist == null) return;
-            if (!recapture && hasFingerRest && thumb1 != null && index1 != null &&
-                middle1 != null && ring1 != null && pinky1 != null) return;
+            if (!recapture && hasFingerRest && thumb1 != null && thumb2 != null &&
+                index1 != null && index2 != null && middle1 != null && middle2 != null &&
+                ring1 != null && ring2 != null && pinky1 != null && pinky2 != null) return;
             hasFingerRest = false;
             string side = wrist.name.EndsWith(".R", StringComparison.Ordinal) ? ".R" : ".L";
             Transform[] bones = wrist.GetComponentsInChildren<Transform>(true);
@@ -254,15 +255,22 @@ public class TwoHandPosePreview : MonoBehaviour
 
     private static void CurlProximalFingers(Arm arm, float weight)
     {
-        if (arm.index1 == null || arm.pinky1 == null || arm.middle1 == null || arm.thumb1 == null) return;
+        if (arm.index1 == null || arm.index2 == null || arm.pinky1 == null || arm.pinky2 == null ||
+            arm.middle1 == null || arm.middle2 == null || arm.ring1 == null || arm.ring2 == null ||
+            arm.thumb1 == null || arm.thumb2 == null) return;
+        // PunkM's five Finger1 transforms ALL share one pivot at the palm.
+        // Their positions cannot define a palm plane, and Thumb1 -> Index1 is
+        // exactly zero. Use the SECOND finger joints to measure the hand spread.
+        Vector3 thumbToward = arm.index2.position - arm.thumb1.position;
         float amount = Mathf.Clamp01(arm.fingerGrip * weight);
         if (amount > 0f)
         {
-            // Plane of the palm, derived from knuckle positions after solving the
-            // wrist. The sign can be flipped per hand for differently exported rigs.
-            Vector3 across = arm.index1.position - arm.pinky1.position;
-            Vector3 length = arm.middle1.position - arm.wrist.position;
-            Vector3 inward = Vector3.Cross(across, length).normalized;
+            Vector3 across = arm.index2.position - arm.pinky2.position;
+            Vector3 length = arm.middle2.position - arm.wrist.position;
+            Vector3 inward = Vector3.Cross(across, length);
+            if (inward.sqrMagnitude < 0.000001f)
+                inward = arm.wrist.up; // Degenerate geometry: still allow coarse manual grip.
+            inward.Normalize();
             if (arm.invertFingerCurl) inward = -inward;
             float bend = Mathf.Max(1f, arm.fingerCurlDegrees) * amount;
             Bend(arm.index1, arm.index2, arm.indexRest, inward, bend);
@@ -275,7 +283,7 @@ public class TwoHandPosePreview : MonoBehaviour
         if (thumbAmount > 0f)
         {
             Vector3 from = arm.thumb2.position - arm.thumb1.position;
-            Vector3 toward = arm.index1.position - arm.thumb1.position;
+            Vector3 toward = thumbToward;
             if (from.sqrMagnitude > 0.000001f && toward.sqrMagnitude > 0.000001f)
             {
                 Quaternion fold = Quaternion.RotateTowards(Quaternion.identity,
